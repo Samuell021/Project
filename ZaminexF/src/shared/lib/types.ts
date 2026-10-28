@@ -1,0 +1,400 @@
+import type React from "react";
+
+type Role = "admin" | "range_manager" | "consultant" | "finance";
+type Page =
+  | "login" | "forgot"
+  | "admin-dashboard" | "properties" | "property-detail" | "add-property" | "edit-property"
+  | "property-files" | "property-files-explore" | "create-property-file" | "property-file-detail" | "edit-property-file"
+  | "tasks-kanban" | "tasks-calendar" | "create-task"
+  | "consultants" | "add-consultant" | "edit-consultant"
+  | "follow-ups" | "create-followup" | "edit-followup"
+  | "tickets-sent" | "tickets-received" | "tickets-all" | "create-ticket"
+  | "property-reports"
+  | "activity"
+  | "settings-workspace" | "settings-permissions" | "settings-ranges" | "settings-login-options" | "manage-districts" | "districts" | "manage-attributes"
+  | "consultant-dashboard" | "my-properties" | "all-properties" | "my-property-files" | "my-tasks" | "my-followups"
+  | "my-profile" | "my-profile-edit" | "my-profile-security"
+  | "crm-dashboard" | "crm-inbox" | "crm-property-register" | "crm-property-cases" | "crm-reviews" | "crm-inquiries" | "crm-inquiry-register" | "crm-introductions" | "crm-viewings" | "crm-contacts" | "crm-pipelines" | "crm-explore" | "crm-deals" | "crm-contracts" | "crm-finance" | "crm-deal-types" | "crm-reports" | "crm-settings" | "guide";
+
+interface TaskHistoryEntry { id: string; action: string; from?: string; to?: string; note?: string; user: string; time: string; }
+
+type ConsultantItem = {
+  id: string | number;
+  full_name: string;
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  role?: string;
+  branch?: string;
+  is_active?: boolean;
+  profile_image?: string | null;
+  user?: {
+    id: string | number;
+    username: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    role: string;
+  };
+  extra_roles?: string[];
+};
+
+type FollowUpType = "Call" | "Meeting" | "Email" | "Site Visit";
+type FollowUpStatus = "scheduled" | "completed" | "cancelled";
+
+type FollowUp = {
+  id: string;
+  type: FollowUpType;
+  title: string;
+  contact: string;
+  date: string;
+  consultant: string;
+  consultantId: string;
+  propertyId: string | null;
+  outcome: string | null;
+  status: FollowUpStatus;
+  probability: number;
+  notes?: string | null;
+  is_archived?: boolean;
+  isOverdue?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type FollowUpCreatePayload = {
+  title: string;
+  type: FollowUpType;
+  contact: string;
+  date: string;
+  propertyId: string | null;
+  consultantId: string | null;
+  notes: string;
+};
+
+type PropertyReportPayload = {
+  property: { id: number; title: string; internalCode: string; neighborhood: string; status: string; consultantId: number };
+  kpis: Record<string, any>;
+  charts: Record<string, any>;
+  warnings: string[];
+  meta: Record<string, any>;
+};
+
+type Property = {
+  id: string | number;
+  internalCode?: string;
+  title: string;
+  type?: string;
+  propertyTypeRef?: string | number | null;
+  propertyTypeName?: string | null;
+  propertyTypeDisplay?: string | null;
+  transactionType?: string;
+  floor?: number;
+  constructionYear?: number;
+  fullAddress?: string;
+  propertyStatus?: string;
+  status?: string;
+  rejectionReason?: string;
+  archived?: boolean;
+  price?: number;
+  area?: number;
+  beds?: number;
+  district?: string;
+  neighborhood?: string;
+  address?: string;
+  districtId?: number | null;
+  cityId?: number | null;
+  cityName?: string | null;
+  provinceId?: number | null;
+  provinceName?: string | null;
+  locationPath?: string | null;
+  consultant?: string | number;
+  consultantName?: string;
+  consultantId?: string | number;
+  consultantRole?: string | null;
+  ownerFirstName?: string;
+  ownerLastName?: string;
+  ownerPhone?: string;
+  date?: string;
+  views?: number;
+  listed?: boolean;
+  roi?: number;
+  gradient?: string;
+  description?: string;
+  images?: { id: string | number; url: string; alt?: string }[];
+  imageUrl?: string | null;
+  appraisalReport?: AppraisalReport | null;
+  pricePerSqm?: number | null;
+  imagesCount?: number;
+  daysOnMarket?: number | null;
+  spatialDensityRatio?: number | null;
+  priceDeviationIndex?: number | null;
+  geoPrecisionFlag?: boolean;
+  engagementHeatScore?: number;
+  latitude?: number | null;
+  longitude?: number | null;
+};
+
+type AppraisalReport = {
+  id: string | number;
+  url: string;
+  fileName: string;
+  fileSize: number;
+  uploadedBy: string | null;
+  uploadedAt: string;
+};
+
+type BadgeV = "default" | "success" | "warning" | "danger" | "info" | "purple" | "muted" | "teal";
+
+type TicketSubjectType = "PROPERTY" | "PROPERTY_FILE" | "FOLLOWUP" | "TASK" | "TICKET";
+type TicketType = "QUESTION" | "REQUEST" | "ALERT" | "ISSUE" | "COMPLAINT" | "ANNOUNCEMENT" | "OTHER";
+type TicketPriority = "NORMAL" | "IMPORTANT" | "URGENT";
+type TicketStatus = "OPEN" | "WAITING_REPLY" | "ANSWERED" | "CLOSED";
+
+type TicketUser = {
+  id: string | number;
+  username: string;
+  name: string;
+  email?: string;
+  role?: string;
+};
+
+type TicketSubject = {
+  type: TicketSubjectType;
+  typeLabel: string;
+  id: string | number | null;
+  label: string;
+  restricted?: boolean;
+  title?: string;
+  internalCode?: string;
+  ticketNumber?: string;
+};
+
+type TicketAttachment = {
+  id: string | number;
+  originalName: string;
+  contentType?: string;
+  size: number;
+  downloadUrl: string;
+  createdAt: string;
+};
+
+type TicketMessage = {
+  id: string | number;
+  body: string;
+  sender: TicketUser | null;
+  threadRecipient?: TicketUser | null;
+  attachments: TicketAttachment[];
+  createdAt: string;
+  isInitial?: boolean;
+};
+
+type TicketRow = {
+  id: string | number;
+  ticketNumber: string;
+  title: string;
+  ticketType: TicketType;
+  ticketTypeLabel: string;
+  priority: TicketPriority;
+  priorityLabel: string;
+  status: TicketStatus;
+  statusLabel: string;
+  subjectType: TicketSubjectType;
+  subjectTypeLabel: string;
+  subjectId: string | number | null;
+  subject: TicketSubject;
+  createdBy: TicketUser | null;
+  recipients: TicketUser[];
+  tags: string[];
+  hasReply: boolean;
+  replyCount: number;
+  lastMessageAt: string | null;
+  lastMessageSender: TicketUser | null;
+  createdAt: string;
+  updatedAt: string;
+  slaDueAt: string | null;
+  isOverdue: boolean;
+  isRead: boolean;
+  isUnread: boolean;
+  needsResponse: boolean;
+  waitingForLabel: string;
+};
+
+type TicketDetail = TicketRow & { messages: TicketMessage[] };
+
+type PropertyFile = {
+  id: string | number;
+  title: string;
+  description: string;
+  status: "DRAFT" | "ACTIVE" | "PAUSED" | "SOLD" | "EXPIRED" | "ARCHIVED";
+  rejectionReason?: string;
+  publishChannel: "WEBSITE" | "INSTAGRAM" | "TELEGRAM" | "OTHER";
+  start_date: string | null;
+  end_date: string | null;
+  assigned_to: string | number | null;
+  created_by: string | number;
+  priority: number;
+  is_featured: boolean;
+  created_at: string;
+  updated_at: string;
+  property: string | number;
+  property_detail?: {
+    id: number;
+    title: string;
+    district: string;
+    price: number;
+    area: number;
+    floor: number;
+    internal_code: string;
+    image_url?: string | null;
+  };
+  created_by_detail?: { id: number; username: string; name: string; email: string };
+  assigned_to_detail?: { id: number; username: string; name: string; email: string };
+  channels: string[];
+  score: number;
+  views: number;
+  effectiveExposureDays?: number | null;
+  delegationIndicator?: string;
+  isBurnedPropertyFile?: boolean;
+  generatedHighProbLeads?: number;
+  contentRichnessScore?: number;
+  engagementHeatScore?: number;
+  dealType?: number | null;
+  deal_type?: string | null;
+  transactionType?: string | null;
+  attributes?: Record<string, any>;
+  dealTypeName?: string | null;
+  dealTypeDisplay?: string | null;
+  salePrice?: string | number | null;
+  deposit?: string | number | null;
+  monthlyRent?: string | number | null;
+  terms?: Record<string, unknown>;
+  version?: number;
+  dealTypeVersion?: number | null;
+  termsSchema?: { fields: { key: string; label: string; type: string; unit?: string; required?: boolean }[] };
+};
+
+interface NavSection {
+  heading?: string;
+  items: { label: string; icon: React.ReactNode; page?: Page; children?: { label: string; page: Page }[]; badge?: number }[];
+}
+
+type ActivityLogItem = {
+  id: number;
+  userId: number | null;
+  userName: string;
+  userAvatar: string;
+  action: string;
+  actionLabel: string;
+  targetType: string;
+  targetTypeLabel: string;
+  targetId: number | null;
+  description: string;
+  createdAt: string;
+};
+
+type ActivityLogUserOption = {
+  id: number;
+  name: string;
+  role: string;
+  roleLabel: string;
+  logCount: number;
+};
+
+type ConsultantRole = "AGENT" | "RANGE_MANAGER";
+
+type AddConsultantFormState = {
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  phone: string;
+  role: string;
+  branch: string;
+  password: string;
+  profile_image: File | null;
+};
+
+type ConsultantOption = {
+  id: string | number;
+  name?: string;
+  full_name?: string;
+  role?: string;
+  branch?: string;
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  active?: boolean;
+  is_active?: boolean;
+  avatar?: string;
+  profile_image?: string | null;
+  imageUrl?: string | null;
+  user?: {
+    id?: string | number;
+    username?: string;
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    role?: string;
+  };
+};
+
+type ConsultantAnalyticsPayload = {
+  consultant: { id: number; fullName: string; branch: string; userId: number };
+  kpis: Record<string, any>;
+  charts: {
+    monthlyActivity?: { month: string; tasksCompleted: number; followups: number; propertyFiles: number }[];
+    tasksByStatus?: { status: string; count: number }[];
+    followupsByType?: { type: string; count: number; completedCount?: number; completionRate: number | null }[];
+    propertyFilesByChannel?: { channel: string; count: number }[];
+    performanceProfile?: { metric: string; score: number }[];
+    propertyFilesByDealType?: { label: string; count: number }[];
+    propertyFilesByStatus?: { status: string; count: number }[];
+    tasksByPriority?: { priority: string; count: number }[];
+    followupsByStatus?: { status: string; count: number }[];
+    propertiesByType?: { type: string; count: number }[];
+    propertyLocations?: { id: number; title: string; lat: number; lng: number; status: string; area: number }[];
+  };
+};
+
+interface PropertiesPageProps {
+  navigate: (p: Page, paramId?: string | number) => void;
+  role: Role;
+  properties: Property[];
+  loading: boolean;
+  openPropertyDetail: (id: string) => void;
+  openPropertyEdit: (id: string) => void;
+  onArchive: (id: string) => void;
+  onDelete: (id: string) => Promise<boolean>;
+  consultants: any[];
+  districtsList?: string[];
+  csrfToken?: string;
+}
+
+interface PropertyDetailProps {
+  navigate: (p: Page, paramId?: string | number) => void;
+  role: Role;
+  property?: Property;
+  currentUserId?: string | number | null;
+  onArchive: (id: string) => void;
+  onDelete: (id: string) => void;
+  onUpdateStatus?: (id: string, status: string) => Promise<boolean>;
+  onApprove?: (id: string) => Promise<boolean>;
+  onReject?: (id: string, reason: string) => Promise<boolean>;
+  openPropertyEdit?: (id: string) => void;
+  csrfToken?: string;
+  onDeleteImage?: (propertyId: string, imageId: string) => Promise<void>;
+  onUploadImages?: (propertyId: string, files: File[]) => Promise<any>;
+  onReorderImages?: (propertyId: string, order: { id: string | number; sort_order: number }[]) => Promise<void>;
+  onUploadAppraisalReport?: (propertyId: string, file: File) => Promise<any>;
+  onDeleteAppraisalReport?: (propertyId: string) => Promise<void>;
+}
+
+export type {
+  Role, Page, TaskHistoryEntry, ConsultantItem, FollowUpType, FollowUpStatus,
+  FollowUp, FollowUpCreatePayload, BadgeV, PropertyReportPayload, Property,
+  AppraisalReport,
+  PropertyFile, NavSection, ActivityLogItem, ActivityLogUserOption, ConsultantRole, AddConsultantFormState,
+  ConsultantOption, ConsultantAnalyticsPayload, PropertiesPageProps, PropertyDetailProps,
+  TicketSubjectType, TicketType, TicketPriority, TicketStatus, TicketUser,
+  TicketSubject, TicketAttachment, TicketMessage, TicketRow, TicketDetail,
+};

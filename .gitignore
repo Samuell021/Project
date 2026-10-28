@@ -1,0 +1,12 @@
+# Environment / secrets — never commit credentials or local config.
+.env
+.env*
+__pycache__/
+*.pyc
+*.sqlite3
+ZaminexF/node_modules/
+ZaminexF/dist/
+ZaminexB/media/
+ZaminexB/staticfiles/
+.venv/
+__venv__/

@@ -1,0 +1,412 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  .ai-test-box {
+    margin: 18px 0 26px;
+    padding: 16px 18px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+  }
+  .ai-test-box h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+  }
+  .ai-test-box p {
+    margin: 0 0 12px;
+    line-height: 1.9;
+  }
+  .ai-docs {
+    margin: 26px 0 10px;
+    padding: 20px 22px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    line-height: 2;
+  }
+  .ai-docs h2 {
+    margin: 4px 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e2e8f0;
+    font-size: 18px;
+  }
+  .ai-docs h3 {
+    margin: 22px 0 8px;
+    font-size: 15px;
+    color: #0f172a;
+  }
+  .ai-docs ol,
+  .ai-docs ul {
+    margin: 0 14px 12px 0;
+    padding: 0 18px 0 0;
+  }
+  .ai-docs li {
+    margin-bottom: 6px;
+  }
+  .ai-docs pre {
+    direction: ltr;
+    text-align: left;
+    margin: 10px 0 16px;
+    padding: 12px 14px;
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 6px;
+    font-size: 12.5px;
+    line-height: 1.7;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .ai-docs code {
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12.5px;
+  }
+  .ai-docs table {
+    width: 100%;
+    margin: 10px 0 18px;
+    border-collapse: collapse;
+  }
+  .ai-docs th,
+  .ai-docs td {
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    text-align: right;
+    vertical-align: top;
+  }
+  .ai-docs th {
+    background: #f1f5f9;
+    font-weight: 600;
+  }
+  .ai-status-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .ai-status-table th {
+    width: 230px;
+    padding: 7px 10px;
+    text-align: right;
+    vertical-align: top;
+    color: #334155;
+    font-weight: 600;
+  }
+  .ai-status-table td {
+    padding: 7px 10px;
+  }
+  .ai-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .ai-badge-ok {
+    background: #dcfce7;
+    color: #15803d;
+  }
+  .ai-badge-fail {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+  .ai-badge-muted {
+    background: #e2e8f0;
+    color: #475569;
+  }
+  .ai-sample {
+    direction: ltr;
+    text-align: left;
+    margin-top: 6px;
+    padding: 8px 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+</style>
+{% endblock %}
+
+{% block after_field_sets %}
+  {{ block.super }}
+  {% if original %}
+  <div class="ai-test-box">
+    <h3>آزمون اتصال به سرویس مرکزی</h3>
+    <p>
+      با زدن این دکمه، مقادیر همین فرم ذخیره می‌شود و سپس سامانه یک درخواست واقعی و
+      بسیار کوچک به سرویس مرکزی می‌فرستد. نتیجه (نام سرویس‌دهنده، مدل، زمان پاسخ و
+      نمونهٔ پاسخ یا متن خطا) در جدول «وضعیت و آخرین آزمون اتصال» بالای همین صفحه و
+      در پیام بالای فرم ثبت می‌شود.
+    </p>
+    <input type="submit" class="button" name="_ai_test" formaction="{{ ai_test_url }}"
+           value="آزمون اتصال به سرویس مرکزی">
+    <a class="button" href="{{ ai_back_url }}">بازگشت به همین فرم</a>
+  </div>
+  {% endif %}
+
+  <div class="ai-docs">
+    <h2>راهنمای کامل و روش کار تنظیمات هوش مصنوعی (API مرکزی)</h2>
+
+    <h3>۱) این بخش چه کاری انجام می‌دهد؟</h3>
+    <p>
+      همهٔ تحلیل‌های هوش مصنوعی سامانه از همین یک نقطه تغذیه می‌شوند: توصیف خودکار ملک
+      (نقاط قوت، نقاط ضعف و جمع‌بندی آماده برای فایل) و تحلیل عملکرد کارشناس
+      (فروش، فعالیت و پیگیری‌ها). سامانه هیچ مدل داخلی ندارد و اطلاعات را به سرویس
+      بیرونی‌ای می‌فرستد که شما در همین صفحه معرفی می‌کنید؛ سرویس باید با قالب
+      استاندارد <code>OpenAI Chat Completions</code> سازگار باشد.
+    </p>
+
+    <h3>۲) روش کار، گام‌به‌گام</h3>
+    <ol>
+      <li>
+        <strong>فعال:</strong> کلید اصلی این قابلیت است. تا وقتی خاموش باشد هیچ درخواستی
+        به سرویس بیرونی فرستاده نمی‌شود و دکمه‌های تحلیل در برنامه غیرفعال می‌مانند.
+      </li>
+      <li>
+        <strong>نشانی پایهٔ سرویس (Base URL):</strong> نشانی عمومی و <code>HTTPS</code>
+        سرویس را وارد کنید؛ مثلاً <code>https://api.openai.com/v1</code>. مسیر
+        <code>/chat/completions</code> خودکار به این نشانی اضافه می‌شود؛ پس آن را
+        دستی وارد نکنید. نشانی‌های <code>http</code>، لوکال‌هاست و آی‌پی‌های داخلی
+        به دلایل امنیتی (جلوگیری از SSRF) پذیرفته نمی‌شوند.
+      </li>
+      <li>
+        <strong>کلید API:</strong> کلید سرویس را یک بار وارد کنید. کلید با الگوریتم
+        <code>AES-GCM</code> رمزنگاری و ذخیره می‌شود، بعد از ذخیره هرگز در صفحه نمایش
+        داده نمی‌شود و برای حفظ کلید فعلی کافی است فیلد را خالی بگذارید. برای پاک کردن
+        کلید، گزینهٔ «حذف کلید ذخیره‌شده» را فعال کنید.
+      </li>
+      <li>
+        <strong>نام مدل:</strong> شناسهٔ دقیق مدل مطابق مستندات سرویس‌دهنده، مثلاً
+        <code>gpt-4o-mini</code>. این فیلد همیشه الزامی است.
+      </li>
+      <li>
+        <strong>ذخیره:</strong> پس از تکمیل مقادیر، فرم را ذخیره کنید. اعتبار
+        نشانی، مدل و کلید ذخیره‌شده در همین مرحله بازبینی می‌شود.
+      </li>
+      <li>
+        <strong>آزمون اتصال:</strong> دکمهٔ «آزمون اتصال به سرویس مرکزی» یک درخواست
+        واقعی با کمترین توکن می‌فرستد و نتیجه را در همین صفحه و در فهرست این بخش
+        گزارش می‌کند؛ اگر سرویس خطا برگرداند، متن خطا نمایش داده می‌شود.
+      </li>
+      <li>
+        <strong>استفاده در برنامه:</strong> از این پس دکمه‌های تحلیل (صفحهٔ ملک،
+        تحلیل کارشناس) نتایج را از همین سرویس می‌گیرند. نتیجهٔ هر تحلیل ۷ روز در
+        سامانه نگه داشته می‌شود و با تغییر داده‌ها دوباره ساخته می‌شود؛ همچنین برای
+        کنترل هزینه، سقف درخواست کاربران ۱۰ بار در ساعت است.
+      </li>
+    </ol>
+
+    <h3>۳) درخواستی که سامانه می‌فرستد</h3>
+    <p>
+      سامانه با متد <code>POST</code> و هدرهای
+      <code>Authorization: Bearer &lt;کلید&gt;</code> و <code>Content-Type: application/json</code>
+      درخواست را به <code>&lt;نشانی پایه&gt;/chat/completions</code> می‌فرستد. بدنهٔ
+      درخواست دقیقاً این ساختار است:
+    </p>
+    <pre>{
+  "model": "gpt-4o-mini",
+  "messages": [
+    {"role": "system", "content": "نقش و قالب خروجی مورد انتظار سامانه (فارسی)"},
+    {"role": "user",   "content": "اطلاعات ملک یا عملکرد کارشناس به صورت JSON"}
+  ],
+  "temperature": 0.4,
+  "max_tokens": 1400
+}</pre>
+    <p>
+      هدر و بدنه در همین ساختار ارسال می‌شود؛ فقط <code>model</code> و مقدار کلید از
+      تنظیمات همین صفحه خوانده می‌شوند. مهلت انتظار برای پاسخ نیز ۱۸۰ ثانیه است.
+    </p>
+
+    <h3>۴) خروجی مورد انتظار از مدل</h3>
+    <p>
+      پاسخ سرویس از مسیر <code>choices[0].message.content</code> خوانده می‌شود و باید
+      متن JSON با این قالب باشد: سه نقطهٔ قوت، سه نقطهٔ ضعف و یک جمع‌بندی ۸۰ تا ۱۴۰
+      کلمه‌ای برای توصیف ملک (برای تحلیل کارشناس، همان ساختار با محتوای عملکرد).
+    </p>
+    <pre>{
+  "positives": ["نقطه قوت اول", "نقطه قوت دوم", "نقطه قوت سوم"],
+  "negatives": ["نقطه ضعف اول", "نقطه ضعف دوم", "نقطه ضعف سوم"],
+  "summary": "جمع‌بندی آمادهٔ انتشار دربارهٔ ملک یا عملکرد، بین ۸۰ تا ۱۴۰ کلمه"
+}</pre>
+    <p>
+      اگر پاسخ مدل JSON معتبر نباشد یا کلید <code>summary</code> نداشته باشد، نتیجه
+      نامعتبر تلقی می‌شود و پیام خطای مناسب به کاربر نشان داده می‌شود.
+    </p>
+
+    <h3>۵) نمونهٔ کامل و دقیق (سرویس OpenAI)</h3>
+    <p>برای راه‌اندازی با OpenAI، دقیقاً این مقادیر را در فیلدهای بالا وارد کنید:</p>
+    <table>
+      <tr>
+        <th>فیلد</th>
+        <th>مقدار دقیق</th>
+      </tr>
+      <tr>
+        <td>فعال</td>
+        <td>روشن</td>
+      </tr>
+      <tr>
+        <td>نشانی پایهٔ سرویس</td>
+        <td><code>https://api.openai.com/v1</code></td>
+      </tr>
+      <tr>
+        <td>کلید API</td>
+        <td>کلید حساب OpenAI؛ قالب نمونه: <code>sk-proj-XXXXXXXX</code> (کلید واقعی خود را بگذارید)</td>
+      </tr>
+      <tr>
+        <td>نام مدل</td>
+        <td><code>gpt-4o-mini</code></td>
+      </tr>
+    </table>
+    <p>
+      سپس فرم را ذخیره کنید و دکمهٔ «آزمون اتصال به سرویس مرکزی» را بزنید. سرویس به
+      نشانی زیر درخواست می‌فرستد:
+    </p>
+    <pre>POST https://api.openai.com/v1/chat/completions
+Authorization: Bearer sk-proj-XXXXXXXX
+Content-Type: application/json</pre>
+    <p>
+      معادل خط فرمان همان درخواست (برای بررسی بیرون از سامانه) این است؛ در آن،
+      <code>sk-proj-XXXXXXXX</code> را با کلید واقعی خود عوض کنید:
+    </p>
+    <pre>curl https://api.openai.com/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-proj-XXXXXXXX" \
+  -d '{
+    "model": "gpt-4o-mini",
+    "messages": [{"role": "user", "content": "سلام"}],
+    "temperature": 0.4,
+    "max_tokens": 1400
+  }'</pre>
+    <p>پاسخ موفق سرویس چنین شکلی دارد:</p>
+    <pre>{
+  "id": "chatcmpl-...",
+  "object": "chat.completion",
+  "model": "gpt-4o-mini-2024-07-18",
+  "choices": [
+    {
+      "index": 0,
+      "message": {"role": "assistant", "content": "..."},
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {"prompt_tokens": 412, "completion_tokens": 268, "total_tokens": 680}
+}</pre>
+    <p>
+      در آزمون اتصال، سامانه فقط این مسیر و دسترسی را می‌سنجد و انتظار دارد سرویس
+      کد وضعیت <code>200</code> برگرداند و متن پاسخ غیرخالی باشد؛ در نتیجهٔ موفق،
+      نام سرویس‌دهنده، نام مدل، زمان پاسخ (میلی‌ثانیه) و نمونهٔ متن بازگشتی نمایش
+      داده می‌شود. برای تحلیل واقعی ملک یا کارشناس همان مسیر با پیام‌های کامل‌تر
+      استفاده می‌شود و خروجی JSON بخش ۴ از دل پاسخ استخراج می‌گردد.
+    </p>
+
+    <h3>۶) جدول خلاصهٔ سرویس‌دهنده‌های سازگار</h3>
+    <p>
+      هر سرویسی که قالب <code>OpenAI Chat Completions</code> را پشتیبانی کند قابل
+      استفاده است. چند نمونهٔ رایج از نشانی پایه و نام مدل:
+    </p>
+    <table>
+      <tr>
+        <th>سرویس‌دهنده</th>
+        <th>نشانی پایه</th>
+        <th>نمونهٔ نام مدل</th>
+      </tr>
+      <tr>
+        <td>OpenAI</td>
+        <td><code>https://api.openai.com/v1</code></td>
+        <td><code>gpt-4o-mini</code></td>
+      </tr>
+      <tr>
+        <td>OpenRouter</td>
+        <td><code>https://openrouter.ai/api/v1</code></td>
+        <td><code>openai/gpt-4o-mini</code></td>
+      </tr>
+      <tr>
+        <td>Google Gemini</td>
+        <td><code>https://generativelanguage.googleapis.com/v1beta/openai</code></td>
+        <td><code>gemini-2.0-flash</code></td>
+      </tr>
+      <tr>
+        <td>DeepSeek</td>
+        <td><code>https://api.deepseek.com/v1</code></td>
+        <td><code>deepseek-chat</code></td>
+      </tr>
+      <tr>
+        <td>Groq</td>
+        <td><code>https://api.groq.com/openai/v1</code></td>
+        <td><code>llama-3.3-70b-versatile</code></td>
+      </tr>
+      <tr>
+        <td>Mistral AI</td>
+        <td><code>https://api.mistral.ai/v1</code></td>
+        <td><code>mistral-small-latest</code></td>
+      </tr>
+      <tr>
+        <td>Together AI</td>
+        <td><code>https://api.together.xyz/v1</code></td>
+        <td><code>meta-llama/Llama-3.3-70B-Instruct-Turbo</code></td>
+      </tr>
+      <tr>
+        <td>سرویس اختصاصی سازگار با OpenAI</td>
+        <td>نشانی <code>HTTPS</code> سازمان خودتان</td>
+        <td>شناسهٔ مدل طبق مستندات همان سرویس</td>
+      </tr>
+    </table>
+    <p>
+      سرویس‌دهنده از نشانی پایه و نام مدل شناسایی می‌شود و نام آن در وضعیت همین بخش
+      نمایش داده می‌شود؛ سرویس ناشناس با عنوان «سرویس سفارشی سازگار با OpenAI»
+      گزارش می‌شود.
+    </p>
+
+    <h3>۷) خطاهای پرتکرار و راه‌حل</h3>
+    <table>
+      <tr>
+        <th>نشانه</th>
+        <th>معنی و راه‌حل</th>
+      </tr>
+      <tr>
+        <td>کد وضعیت <code>401</code> یا <code>403</code></td>
+        <td>کلید API نادرست، منقضی یا نامرتبط است. کلید جدید را در فیلد کلید وارد و ذخیره کنید.</td>
+      </tr>
+      <tr>
+        <td>کد وضعیت <code>404</code></td>
+        <td>نشانی پایه درست نیست یا مسیر <code>/chat/completions</code> را دستی اضافه کرده‌اید. نشانی پایه را بدون آن مسیر وارد کنید.</td>
+      </tr>
+      <tr>
+        <td>کد وضعیت <code>400</code> یا <code>422</code></td>
+        <td>نام مدل نامعتبر است یا سرویس قالب پیام را نمی‌پذیرد. شناسهٔ مدل را از مستندات سرویس‌دهنده بردارید.</td>
+      </tr>
+      <tr>
+        <td>کد وضعیت <code>429</code></td>
+        <td>سقف مصرف یا تعداد درخواست سرویس پر شده است. اعتبار حساب سرویس‌دهنده را بررسی کنید.</td>
+      </tr>
+      <tr>
+        <td>کد وضعیت <code>5xx</code></td>
+        <td>اختلال موقت سرویس‌دهنده است؛ چند دقیقه بعد آزمون را تکرار کنید.</td>
+      </tr>
+      <tr>
+        <td>پیام «اتصال برقرار نشد»</td>
+        <td>دسترسی شبکه، فایروال سرور یا گواهی <code>HTTPS</code> سرویس‌دهنده را بررسی کنید.</td>
+      </tr>
+      <tr>
+        <td>پیام خطای نشانی غیرمجاز</td>
+        <td>نشانی باید <code>HTTPS</code> و عمومی باشد؛ آدرس لوکال، شبکهٔ داخلی و آی‌پی خصوصی مسدود است.</td>
+      </tr>
+      <tr>
+        <td>پیام «کلید ذخیره‌شده قابل خواندن نیست»</td>
+        <td>کلید رمزنگاری‌شده از تاریخچه حذف یا عوض شده است؛ کلید API را دوباره وارد و ذخیره کنید.</td>
+      </tr>
+    </table>
+
+    <h3>۸) نکات امنیتی و عملکردی</h3>
+    <ul>
+      <li>کلید API رمزنگاری‌شده ذخیره می‌شود و در پاسخ به مرورگر یا در صفحه‌های برنامه نمایش داده نمی‌شود.</li>
+      <li>ارسال داده فقط به نشانی <code>HTTPS</code> عمومی انجام می‌شود؛ نشانی‌های داخلی و ناامن رد می‌شوند.</li>
+      <li>دسترسی به این صفحه فقط برای کاربران مدیریتی دارای مجوز فهرست/تغییر تنظیمات شرکت ممکن است.</li>
+      <li>نتیجهٔ هر تحلیل تا ۷ روز اعتبار دارد؛ سقف درخواست‌های هوش مصنوعی برای هر کاربر ۱۰ بار در ساعت است.</li>
+      <li>تغییر کلید یا خاموش‌کردن سرویس، تنها از همین صفحه انجام می‌شود و بلافاصله روی همهٔ تحلیل‌های بعدی اثر می‌گذارد.</li>
+    </ul>
+  </div>
+{% endblock %}

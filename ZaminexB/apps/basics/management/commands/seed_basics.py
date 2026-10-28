@@ -1,0 +1,365 @@
+from __future__ import annotations
+
+from decimal import Decimal
+
+from django.core.management.base import BaseCommand
+from django.db import transaction
+
+from apps.basics.models import (
+    Attribute,
+    AttributeOption,
+    DealType,
+    DealTypeAttribute,
+    DealTypeSearchAttribute,
+    PropertyType,
+    PropertyTypeAttribute,
+    PropertyTypeSearchAttribute,
+    PropertyUsage,
+)
+
+A = Attribute.DataType
+F = Attribute.FilterType
+E = Attribute.Entity
+
+USAGES = [
+    ("residential", "مسکونی", 10),
+    ("commercial", "تجاری", 20),
+    ("office", "اداری", 30),
+]
+
+PROPERTY_TYPES = [
+    ("apartment", "آپارتمان", "residential", 10),
+    ("villa", "ویلا", "residential", 20),
+    ("townhouse", "خانه ویلایی", "residential", 30),
+    ("studio", "سوئیت", "residential", 40),
+    ("penthouse", "پنت‌هاوس", "residential", 50),
+    ("land", "زمین", "residential", 60),
+    ("shop", "مغازه", "commercial", 10),
+    ("commercial", "ملک تجاری", "commercial", 20),
+    ("warehouse", "انبار", "commercial", 30),
+    ("office", "دفتر کار", "office", 10),
+    ("office_building", "ساختمان اداری", "office", 20),
+    ("other", "سایر", "residential", 900),
+]
+
+DEAL_TYPES = [
+    ("sale", "فروش", "SALE", 10),
+    ("mortgage_rent", "رهن و اجاره", "RENT", 20),
+    ("full_mortgage", "رهن کامل", "FULL_MORTGAGE", 30),
+    ("presale", "پیش‌فروش", "PRE_SALE", 40),
+    ("exchange", "معاوضه", "EXCHANGE", 50),
+    ("partnership", "مشارکت در ساخت", "PARTNERSHIP", 60),
+]
+
+ATTRIBUTES = [
+    ("area", "متراژ", A.DECIMAL, F.RANGE_FAST, "متر مربع", E.PROPERTY, False, True, "area", 10),
+    ("rooms", "تعداد اتاق", A.INTEGER, F.RANGE, "عدد", E.PROPERTY, False, False, "", 20),
+    ("floor", "طبقه", A.INTEGER, F.RANGE, "", E.PROPERTY, False, False, "", 30),
+    ("built_year", "سال ساخت", A.INTEGER, F.RANGE, "", E.PROPERTY, False, False, "", 40),
+    
+    ("total_floors", "تعداد کل طبقات", A.INTEGER, F.RANGE, "", E.PROPERTY, False, False, "", 50),
+    ("units_per_floor", "واحد در طبقه", A.INTEGER, F.EXACT, "", E.PROPERTY, False, False, "", 60),
+    ("building_direction", "جهت ساختمان", A.SELECT, F.EXACT, "", E.PROPERTY, False, False, "", 70),
+    ("document_type", "نوع سند", A.SELECT, F.EXACT, "", E.PROPERTY, False, False, "", 80),
+    ("renovation_status", "وضعیت بازسازی", A.SELECT, F.EXACT, "", E.PROPERTY, False, False, "", 90),
+    ("land_area", "متراژ زمین", A.DECIMAL, F.RANGE, "متر مربع", E.PROPERTY, False, False, "", 100),
+    ("building_area", "متراژ بنا", A.DECIMAL, F.RANGE, "متر مربع", E.PROPERTY, False, False, "", 110),
+    ("frontage", "بر زمین", A.DECIMAL, F.RANGE, "متر", E.PROPERTY, False, False, "", 120),
+    ("bathrooms", "تعداد سرویس بهداشتی", A.INTEGER, F.RANGE, "عدد", E.PROPERTY, False, False, "", 130),
+    ("shop_width", "دهنه مغازه", A.DECIMAL, F.RANGE, "متر", E.PROPERTY, False, False, "", 140),
+    ("has_balcony", "بالکن", A.BOOLEAN, F.EXISTS, "", E.PROPERTY, True, False, "", 200),
+    
+    ("parking", "پارکینگ", A.BOOLEAN, F.EXISTS, "", E.PROPERTY, True, False, "", 210),
+    ("elevator", "آسانسور", A.BOOLEAN, F.EXISTS, "", E.PROPERTY, True, False, "", 220),
+    ("storage", "انباری", A.BOOLEAN, F.EXISTS, "", E.PROPERTY, True, False, "", 230),
+    ("pool", "استخر", A.BOOLEAN, F.EXISTS, "", E.PROPERTY, True, False, "", 240),
+    ("sauna", "سونا", A.BOOLEAN, F.EXISTS, "", E.PROPERTY, True, False, "", 250),
+    ("jacuzzi", "جکوزی", A.BOOLEAN, F.EXISTS, "", E.PROPERTY, True, False, "", 260),
+    ("security_guard", "نگهبانی", A.BOOLEAN, F.EXISTS, "", E.PROPERTY, True, False, "", 270),
+    ("central_antenna", "آنتن مرکزی", A.BOOLEAN, F.EXISTS, "", E.PROPERTY, True, False, "", 280),
+    ("remote_door", "درب ریموت", A.BOOLEAN, F.EXISTS, "", E.PROPERTY, True, False, "", 290),
+    ("water_well", "چاه آب", A.BOOLEAN, F.EXISTS, "", E.PROPERTY, True, False, "", 300),
+    ("electricity", "برق", A.BOOLEAN, F.EXISTS, "", E.PROPERTY, True, False, "", 310),
+    ("gas", "گاز", A.BOOLEAN, F.EXISTS, "", E.PROPERTY, True, False, "", 320),
+]
+
+ATTRIBUTE_OPTIONS = {
+    "building_direction": [
+        ("north", "شمالی", 10),
+        ("south", "جنوبی", 20),
+        ("east", "شرقی", 30),
+        ("west", "غربی", 40),
+        ("north_south", "شمالی جنوبی", 50),
+    ],
+    "document_type": [
+        ("single_deed", "تک برگ", 10),
+        ("shared_deed", "مشاع", 20),
+        ("endowment", "وقفی", 30),
+        ("agreement", "قولنامه‌ای", 40),
+    ],
+    "renovation_status": [
+        ("new", "نوساز", 10),
+        ("renovated", "بازسازی شده", 20),
+        ("needs_renovation", "نیاز به بازسازی", 30),
+    ],
+}
+
+TYPE_ATTRIBUTES: dict[str, list[tuple[str, bool]]] = {
+    "*": [("area", True)],
+    "apartment": [
+        ("rooms", True), ("floor", False), ("built_year", False),
+        ("total_floors", False), ("units_per_floor", False),
+        ("building_direction", False), ("document_type", False),
+        ("renovation_status", False), ("bathrooms", False),
+        ("has_balcony", False), ("parking", False), ("elevator", False),
+        ("storage", False), ("security_guard", False), ("remote_door", False),
+    ],
+    "penthouse": [
+        ("rooms", True), ("floor", False), ("built_year", False),
+        ("total_floors", False), ("building_direction", False),
+        ("document_type", False), ("bathrooms", False), ("has_balcony", False),
+        ("parking", False), ("elevator", False), ("storage", False),
+        ("pool", False), ("jacuzzi", False), ("security_guard", False),
+    ],
+    "studio": [
+        ("rooms", False), ("floor", False), ("built_year", False),
+        ("document_type", False), ("bathrooms", False), ("parking", False),
+        ("elevator", False),
+    ],
+    "villa": [
+        ("rooms", True), ("built_year", False), ("land_area", False),
+        ("building_area", False), ("building_direction", False),
+        ("document_type", False), ("renovation_status", False),
+        ("bathrooms", False), ("parking", False), ("pool", False),
+        ("sauna", False), ("jacuzzi", False), ("storage", False),
+    ],
+    "townhouse": [
+        ("rooms", True), ("built_year", False), ("land_area", False),
+        ("building_area", False), ("document_type", False),
+        ("bathrooms", False), ("parking", False), ("storage", False),
+    ],
+    "land": [
+        ("land_area", True), ("frontage", False), ("document_type", False),
+        ("water_well", False), ("electricity", False), ("gas", False),
+    ],
+    "shop": [
+        ("built_year", False), ("shop_width", False), ("document_type", False),
+        ("bathrooms", False), ("parking", False), ("storage", False),
+        ("security_guard", False),
+    ],
+    "commercial": [
+        ("floor", False), ("built_year", False), ("document_type", False),
+        ("parking", False), ("elevator", False), ("security_guard", False),
+    ],
+    "warehouse": [
+        ("built_year", False), ("land_area", False), ("document_type", False),
+        ("electricity", False), ("gas", False),
+    ],
+    "office": [
+        ("rooms", False), ("floor", False), ("built_year", False),
+        ("total_floors", False), ("document_type", False),
+        ("bathrooms", False), ("parking", False), ("elevator", False),
+        ("security_guard", False),
+    ],
+    "office_building": [
+        ("built_year", False), ("total_floors", False),
+        ("document_type", False), ("parking", False), ("elevator", False),
+        ("security_guard", False),
+    ],
+    "other": [("document_type", False)],
+}
+
+TYPE_SEARCH_ATTRIBUTES: dict[str, list[str]] = {
+    "*": ["area"],
+    "apartment": ["rooms", "floor", "built_year", "parking", "elevator", "storage"],
+    "penthouse": ["rooms", "built_year", "parking", "elevator", "pool"],
+    "studio": ["rooms", "built_year", "parking"],
+    "villa": ["rooms", "land_area", "built_year", "pool", "parking"],
+    "townhouse": ["rooms", "land_area", "built_year", "parking"],
+    "land": ["land_area", "frontage", "document_type"],
+    "shop": ["shop_width", "built_year", "parking"],
+    "commercial": ["floor", "built_year", "parking"],
+    "warehouse": ["land_area", "built_year"],
+    "office": ["rooms", "floor", "built_year", "parking", "elevator"],
+    "office_building": ["total_floors", "built_year", "parking", "elevator"],
+    "other": [],
+}
+
+
+class Command(BaseCommand):
+    help = "Seed the reference-data tables (usages, property types, deal types, attributes)."
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Overwrite display names and settings that were edited locally.",
+        )
+
+    def _upsert(self, model, name, defaults, force):
+        obj = model.all_objects.filter(name=name).first()
+        if obj is None:
+            return model.objects.create(name=name, **defaults), True
+        if force:
+            for field, value in defaults.items():
+                setattr(obj, field, value)
+            obj.save()
+        return obj, False
+
+    @transaction.atomic
+    def handle(self, *args, **options):
+        force = options["force"]
+        created_total = 0
+
+        usages = {}
+        for name, label, order in USAGES:
+            obj, created = self._upsert(
+                PropertyUsage, name,
+                {"display_name": label, "sort_order": Decimal(order)}, force,
+            )
+            usages[name] = obj
+            created_total += created
+        self.stdout.write(f"  کاربری ملک        : {len(usages)}")
+
+        types = {}
+        for name, label, usage, order in PROPERTY_TYPES:
+            obj, created = self._upsert(
+                PropertyType, name,
+                {
+                    "display_name": label,
+                    "property_usage": usages[usage],
+                    "sort_order": Decimal(order),
+                    "slug": name,
+                },
+                force,
+            )
+            types[name] = obj
+            created_total += created
+        self.stdout.write(f"  انواع ملک         : {len(types)}")
+
+        deals = {}
+        for name, label, family, order in DEAL_TYPES:
+            obj, created = self._upsert(
+                DealType,
+                name,
+                {"display_name": label, "family": family, "sort_order": Decimal(order)},
+                force,
+            )
+            # The family determines required financial fields, parties and the
+            # negotiation workflow. It is canonical for these system keys, so
+            # repair stale fixture/migration defaults even when --force is not
+            # requested; display labels and other local edits remain intact.
+            if obj.family != family:
+                obj.family = family
+                obj.save(update_fields=["family", "updated_at"])
+            deals[name] = obj
+            created_total += created
+        self.stdout.write(f"  انواع معامله      : {len(deals)}")
+
+        attrs = {}
+        for (
+            name, label, data_type, filter_type, unit, entity,
+            is_facility, is_core, core_field, order,
+        ) in ATTRIBUTES:
+            obj, created = self._upsert(
+                Attribute, name,
+                {
+                    "display_name": label,
+                    "data_type": data_type,
+                    "filter_type": filter_type,
+                    "unit": unit,
+                    "entity": entity,
+                    "is_facility": is_facility,
+                    "is_core": is_core,
+                    "core_field": core_field,
+                    "sort_order": Decimal(order),
+                },
+                force,
+            )
+            # These four physical features have a fixed product contract:
+            # area is the only shared core field; the others are dynamic and
+            # are made available through each property's type-specific links.
+            if name in {"area", "rooms", "floor", "built_year"} and (
+                obj.is_core != is_core or obj.core_field != core_field
+            ):
+                obj.is_core = is_core
+                obj.core_field = core_field
+                obj.save(update_fields=["is_core", "core_field", "updated_at"])
+            attrs[name] = obj
+            created_total += created
+        self.stdout.write(f"  ویژگی‌ها          : {len(attrs)}")
+
+        option_count = 0
+        for attr_name, options in ATTRIBUTE_OPTIONS.items():
+            attribute = attrs[attr_name]
+            for value, label, order in options:
+                defaults = {"display_name": label, "sort_order": Decimal(order)}
+                manager = AttributeOption.objects
+                if force:
+                    _, created = manager.update_or_create(
+                        attribute=attribute,
+                        value=value,
+                        defaults=defaults,
+                    )
+                else:
+                    _, created = manager.get_or_create(
+                        attribute=attribute,
+                        value=value,
+                        defaults=defaults,
+                    )
+                option_count += 1
+        self.stdout.write(f"  گزینه‌های ویژگی   : {option_count}")
+
+        shared = TYPE_ATTRIBUTES.get("*", [])
+        link_count = 0
+        for type_name, type_obj in types.items():
+            entries = shared + TYPE_ATTRIBUTES.get(type_name, [])
+            for position, (attr_name, required) in enumerate(entries, start=1):
+                defaults = {
+                    "is_required": required,
+                    "sort_order": Decimal(position * 10),
+                    "is_active": True,
+                }
+                manager = PropertyTypeAttribute.objects
+                if force:
+                    manager.update_or_create(
+                        property_type=type_obj,
+                        attribute=attrs[attr_name],
+                        defaults=defaults,
+                    )
+                else:
+                    manager.get_or_create(
+                        property_type=type_obj,
+                        attribute=attrs[attr_name],
+                        defaults=defaults,
+                    )
+                link_count += 1
+        self.stdout.write(f"  اتصال ویژگی به نوع ملک: {link_count}")
+
+        shared_search = TYPE_SEARCH_ATTRIBUTES.get("*", [])
+        search_count = 0
+        for type_name, type_obj in types.items():
+            entries = shared_search + TYPE_SEARCH_ATTRIBUTES.get(type_name, [])
+            for position, attr_name in enumerate(entries, start=1):
+                defaults = {"sort_order": Decimal(position * 10), "is_active": True}
+                manager = PropertyTypeSearchAttribute.objects
+                if force:
+                    manager.update_or_create(
+                        property_type=type_obj,
+                        attribute=attrs[attr_name],
+                        defaults=defaults,
+                    )
+                else:
+                    manager.get_or_create(
+                        property_type=type_obj,
+                        attribute=attrs[attr_name],
+                        defaults=defaults,
+                    )
+                search_count += 1
+        self.stdout.write(f"  فیلترهای جستجو    : {search_count}")
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"\nاطلاعات پایه آماده شد ({created_total} رکورد جدید ایجاد شد)."
+            )
+        )

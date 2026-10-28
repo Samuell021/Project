@@ -1,0 +1,37 @@
+from rest_framework.routers import DefaultRouter
+
+from . import foundation_api, views
+
+router = DefaultRouter()
+router.register("deal-types", foundation_api.DealTypeViewSet, basename="crm-deal-types")
+router.register("me", foundation_api.MeViewSet, basename="crm-me")
+router.register("staff", foundation_api.StaffViewSet, basename="crm-staff")
+router.register("contacts", views.ContactViewSet, basename="contacts")
+router.register("scopes", views.ManagementScopeViewSet, basename="scopes")
+router.register("scope-memberships", views.ScopeMembershipViewSet, basename="scope-memberships")
+router.register("deal-type-versions", views.DealTypeVersionViewSet, basename="deal-type-versions")
+router.register("property-cases", views.PropertyCaseViewSet, basename="property-cases")
+router.register("properties", views.PropertyCrmViewSet, basename="crm-properties")
+router.register("listings", views.PropertyFileCrmViewSet, basename="listings")
+router.register("property-files", views.PropertyFileCrmViewSet, basename="crm-property-files")
+router.register("crm-listings", views.PropertyFileCrmViewSet, basename="crm-listings")
+router.register("explore", views.ExploreCrmViewSet, basename="crm-explore")
+router.register("reviews", views.PropertyReviewQueueViewSet, basename="crm-reviews")
+router.register("inquiries", views.InquiryViewSet, basename="inquiries")
+router.register("withdrawals", views.WithdrawalViewSet, basename="withdrawals")
+router.register("reschedules", views.RescheduleViewSet, basename="reschedules")
+router.register("introductions", views.IntroductionViewSet, basename="introductions")
+router.register("viewings", views.ViewingViewSet, basename="viewings")
+router.register("deals", views.DealViewSet, basename="deals")
+router.register("contracts", views.ContractViewSet, basename="contracts")
+router.register("commission-policies", views.CommissionPolicyViewSet, basename="commission-policies")
+router.register("commissions", views.CommissionViewSet, basename="commissions")
+router.register("payments", views.PaymentViewSet, basename="payments")
+router.register("crm-dashboard", views.DashboardViewSet, basename="crm-dashboard")
+router.register("dashboard", views.DashboardViewSet, basename="crm-dashboard-summary")
+router.register("reports", views.ReportsViewSet, basename="crm-reports")
+router.register("pipelines", views.PipelinesViewSet, basename="crm-pipelines")
+router.register("finance", views.FinanceViewSet, basename="crm-finance")
+router.register("workflow-settings", views.WorkflowSettingsViewSet, basename="workflow-settings")
+
+urlpatterns = router.urls

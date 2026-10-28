@@ -1,0 +1,231 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework import filters, permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
+
+from apps.accounts.permissions import require_permission
+from apps.accounts.scoping import team_user_ids
+from apps.common.date_filters import (
+    apply_datetime_field_range,
+    parse_gregorian_date,
+    validate_date_range,
+)
+from apps.common.pagination import LargeListPagination
+
+from apps.crm.services.followup_workflow import complete_follow_up, create_follow_up, reschedule_follow_up
+
+from .models import FollowUp, FollowUpStatus
+from .serializers import (
+    FollowUpArchiveSerializer,
+    FollowUpListSerializer,
+    FollowUpWriteSerializer,
+)
+
+
+def convert_command_errors(func):
+    def wrapped(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except DjangoValidationError as exc:
+            raise ValidationError(getattr(exc, "message_dict", {"detail": exc.messages}))
+
+    wrapped.__name__ = func.__name__
+    return wrapped
+
+
+class FollowUpViewSet(viewsets.ModelViewSet):
+    queryset = FollowUp.objects.select_related(
+        "consultant", "property", "property_case", "property_case__contact",
+        "inquiry", "inquiry__contact",
+    ).all().order_by("-updated_at", "-created_at")
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = LargeListPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = [
+        "title",
+        "contact_name",
+        "consultant__username",
+        "consultant_name",
+        "property__title",
+        "property_title",
+        "property_case__code",
+        "property_case__contact__full_name",
+        "inquiry__code",
+        "inquiry__contact__full_name",
+        "notes",
+        "outcome",
+    ]
+    ordering_fields = ["scheduled_at", "created_at", "updated_at", "probability"]
+    ordering = ["-updated_at", "-created_at"]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        user = self.request.user
+
+        ids = team_user_ids(user)
+        if ids is not None:
+            queryset = queryset.filter(consultant_id__in=ids)
+
+        from apps.crm import services as crm_services
+        from django.db.models import Q
+
+        queryset = queryset.filter(
+            (Q(property_case__isnull=True) | crm_services.case_visibility_filter(user, "property_case"))
+            & (Q(inquiry__isnull=True) | crm_services.case_visibility_filter(user, "inquiry"))
+        )
+
+        archived = self.request.query_params.get("archived")
+        consultant_id = self.request.query_params.get("consultantId")
+        property_id = self.request.query_params.get("propertyId")
+        property_case_id = self.request.query_params.get("propertyCaseId")
+        inquiry_id = self.request.query_params.get("inquiryId")
+        status_value = self.request.query_params.get("status")
+        type_value = self.request.query_params.get("type")
+
+        if self.action == "list":
+            if archived in ("true", "1", "yes"):
+                queryset = queryset.filter(is_archived=True)
+            elif archived in ("false", "0", "no", None):
+                queryset = queryset.filter(is_archived=False)
+
+        if consultant_id:
+            queryset = queryset.filter(consultant_id=consultant_id)
+
+        if property_id:
+            queryset = queryset.filter(property_id=property_id)
+
+        if property_case_id:
+            queryset = queryset.filter(property_case_id=property_case_id)
+
+        if inquiry_id:
+            queryset = queryset.filter(inquiry_id=inquiry_id)
+
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+
+        if type_value:
+            queryset = queryset.filter(follow_up_type=type_value)
+
+        scheduled_from = parse_gregorian_date(
+            self.request.query_params.get("scheduledDateFrom"), "scheduledDateFrom"
+        )
+        scheduled_to = parse_gregorian_date(
+            self.request.query_params.get("scheduledDateTo"), "scheduledDateTo"
+        )
+        validate_date_range(
+            scheduled_from, scheduled_to, "scheduledDateFrom", "scheduledDateTo"
+        )
+        queryset = apply_datetime_field_range(
+            queryset, "scheduled_at", scheduled_from, scheduled_to
+        )
+
+        return queryset
+
+    def get_serializer_class(self):
+        if self.action in {"list", "retrieve"}:
+            return FollowUpListSerializer
+        if self.action in {"archive", "unarchive"}:
+            return FollowUpArchiveSerializer
+        return FollowUpWriteSerializer
+
+    @convert_command_errors
+    def create(self, request, *args, **kwargs):
+        require_permission(
+            request.user, "followup.manage", "شما اجازه ثبت پیگیری را ندارید."
+        )
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = dict(serializer.validated_data)
+        payload.pop("status", None)
+        instance, _ = create_follow_up(request.user, payload)
+        output = FollowUpListSerializer(instance, context=self.get_serializer_context())
+        return Response(output.data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        require_permission(
+            request.user, "followup.manage", "شما اجازه ویرایش پیگیری را ندارید."
+        )
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        output = FollowUpListSerializer(instance, context=self.get_serializer_context())
+        return Response(output.data)
+
+    @action(detail=True, methods=["post"])
+    @convert_command_errors
+    def reschedule(self, request, pk=None):
+        followup, _ = reschedule_follow_up(self.get_object().pk, request.user, request.data)
+        return Response(FollowUpListSerializer(followup, context=self.get_serializer_context()).data)
+
+    @action(detail=True, methods=["post"])
+    @convert_command_errors
+    def complete(self, request, pk=None):
+        followup, _, created = complete_follow_up(self.get_object().pk, request.user, request.data)
+        payload = FollowUpListSerializer(followup, context=self.get_serializer_context()).data
+        payload["next_follow_up"] = FollowUpListSerializer(created, context=self.get_serializer_context()).data if created else None
+        return Response(payload)
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)
+
+
+    def destroy(self, request, *args, **kwargs):
+        require_permission(
+            request.user, "followup.manage", "شما اجازه حذف پیگیری را ندارید."
+        )
+        return super().destroy(request, *args, **kwargs)
+
+    @action(detail=True, methods=["post"])
+    def archive(self, request, pk=None):
+        require_permission(
+            request.user, "followup.manage", "شما اجازه بایگانی پیگیری را ندارید."
+        )
+        instance = self.get_object()
+        instance.archive()
+        serializer = FollowUpArchiveSerializer({"is_archived": instance.is_archived})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def unarchive(self, request, pk=None):
+        require_permission(
+            request.user, "followup.manage", "شما اجازه بازگردانی پیگیری را ندارید."
+        )
+        instance = self.get_object()
+        instance.unarchive()
+        serializer = FollowUpArchiveSerializer({"is_archived": instance.is_archived})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get"], url_path="my-followups")
+    def my_followups(self, request):
+        consultant_id = request.query_params.get("consultantId")
+        if not consultant_id:
+            return Response(
+                {"detail": "پارامتر consultantId الزامی است."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        queryset = self.get_queryset().filter(
+            consultant_id=consultant_id,
+            is_archived=False,
+        )
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = FollowUpListSerializer(page, many=True, context=self.get_serializer_context())
+            return self.get_paginated_response(serializer.data)
+
+        serializer = FollowUpListSerializer(queryset, many=True, context=self.get_serializer_context())
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="summary")
+    def summary(self, request):
+        queryset = self.get_queryset().filter(is_archived=False)
+        payload = {
+            "total": queryset.count(),
+            "scheduled": queryset.filter(status=FollowUpStatus.SCHEDULED).count(),
+            "completed": queryset.filter(status=FollowUpStatus.COMPLETED).count(),
+        }
+        return Response(payload, status=status.HTTP_200_OK)

@@ -1,0 +1,9 @@
+@font-face {
+	font-family: IRANRounded;
+	font-style: normal;
+	font-weight: 900;
+src: url('../../../ZaminexB/static/fonts/eot/IRAN-Rounded.eot');
+	src: url('../../../ZaminexB/static/fonts/eot/IRAN-Rounded.eot?#iefix') format('embedded-opentype'),
+		 url('../../../ZaminexB/static/fonts/woff/IRAN-Rounded.woff') format('woff'),
+		 url('../../../ZaminexB/static/fonts/ttf/IRAN-Rounded.ttf') format('truetype');
+}

@@ -1,0 +1,16 @@
+{% load static vite_assets %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-brand-theme="{{ company_brand_theme|default:'green' }}">
+<head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <meta name="theme-color" content="#176552">
+    <title>{% block title %}CRM{% endblock %}</title>
+    <script src="{% static 'js/theme-init.js' %}"></script>
+    {% vite_asset 'src/main.tsx' %}
+</head>
+<body>
+    {% block content %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,17 @@
+import django.core.validators
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('accounts', '0003_alter_consultantprofile_hired_at_and_more'),
+    ]
+
+    operations = [
+        migrations.AlterField(
+            model_name='consultantprofile',
+            name='mobile',
+            field=models.CharField(blank=True, max_length=11, null=True, unique=True, validators=[django.core.validators.RegexValidator(message='Enter a valid Iranian mobile number.', regex='^09\\d{9}$')]),
+        ),
+    ]

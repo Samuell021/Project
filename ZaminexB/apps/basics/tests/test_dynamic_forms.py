@@ -1,0 +1,401 @@
+import io
+
+from django.contrib.auth import get_user_model
+from django.core.management import call_command
+from django.test import TestCase
+
+from apps.basics.models import Attribute, DealType, PropertyType
+from apps.listings.models import Listing
+from apps.properties.models import Property
+
+User = get_user_model()
+
+
+class PropertyWizardPayloadTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_basics", stdout=io.StringIO())
+        cls.admin = User.objects.create_user(
+            username="wiz-admin", password="pw", role="ADMIN"
+        )
+        cls.agent = User.objects.create_user(
+            username="wiz-agent", password="pw", role="AGENT"
+        )
+        cls.apartment = PropertyType.objects.get(name="apartment")
+        cls.land = PropertyType.objects.get(name="land")
+
+    def setUp(self):
+        self.client.force_login(self.admin)
+
+    def _payload(self, **overrides):
+        payload = {
+            "title": "آپارتمان تست",
+            "internalCode": "WIZ-1",
+            "propertyTypeRef": self.apartment.pk,
+            "area": 145,
+            "beds": 3,
+            "district": "مرکزی",
+            "fullAddress": "تهران",
+            "consultant": self.agent.pk,
+            "ownerFirstName": "تست",
+            "ownerLastName": "تستی",
+            "ownerPhone": "09121234567",
+        }
+        payload.update(overrides)
+        return payload
+
+    def _created_property(self, response):
+        self.assertEqual(response.status_code, 201, response.content[:400])
+        return Property.objects.get(pk=response.json()["id"])
+
+    def test_a_property_is_created_without_a_price(self):
+        response = self.client.post(
+            "/properties/api/properties/", self._payload(), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 201, response.content[:400])
+
+        prop = self._created_property(response)
+        self.assertIsNone(prop.price)
+
+    def test_the_legacy_type_column_is_kept_in_sync(self):
+        response = self.client.post(
+            "/properties/api/properties/", self._payload(), content_type="application/json"
+        )
+        prop = self._created_property(response)
+
+        self.assertEqual(prop.property_type_ref, self.apartment)
+        self.assertEqual(prop.property_type, "APARTMENT")
+
+    def test_the_usage_is_derived_from_the_type(self):
+        response = self.client.post(
+            "/properties/api/properties/", self._payload(), content_type="application/json"
+        )
+        prop = self._created_property(response)
+        self.assertEqual(prop.property_usage.name, "residential")
+
+    def test_custom_fields_are_stored_and_returned(self):
+        response = self.client.post(
+            "/properties/api/properties/",
+            self._payload(
+                attributes={
+                    "total_floors": 10,
+                    "parking": True,
+                    "document_type": "single_deed",
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201, response.content[:400])
+
+        body = response.json()
+        self.assertEqual(body["attributes"]["total_floors"], 10)
+        self.assertIs(body["attributes"]["parking"], True)
+        self.assertEqual(body["attributes"]["document_type"], "single_deed")
+
+        labels = {d["displayName"]: d["displayValue"] for d in body["attributeDetails"]}
+        self.assertEqual(labels["پارکینگ"], "بله")
+        self.assertEqual(labels["نوع سند"], "تک برگ")
+
+    def test_an_attribute_of_another_type_is_rejected(self):
+        response = self.client.post(
+            "/properties/api/properties/",
+            self._payload(attributes={"not_a_real_field": 1}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("attributes", response.json())
+
+    def test_core_fields_must_not_be_sent_as_custom_fields(self):
+        response = self.client.post(
+            "/properties/api/properties/",
+            self._payload(attributes={"area": 200}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_updating_replaces_a_value_and_clears_another(self):
+        response = self.client.post(
+            "/properties/api/properties/",
+            self._payload(attributes={"total_floors": 10, "parking": True}),
+            content_type="application/json",
+        )
+        prop = self._created_property(response)
+
+        response = self.client.patch(
+            f"/properties/api/properties/{prop.pk}/",
+            {"attributes": {"total_floors": 15, "parking": None}},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        attributes = response.json()["attributes"]
+        self.assertEqual(attributes["total_floors"], 15)
+        self.assertNotIn("parking", attributes, "a null value clears the field")
+
+    def test_a_land_property_stores_its_own_field_set(self):
+        response = self.client.post(
+            "/properties/api/properties/",
+            self._payload(
+                internalCode="WIZ-LAND",
+                propertyTypeRef=self.land.pk,
+                attributes={"land_area": 500, "water_well": True},
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201, response.content[:400])
+        self.assertEqual(response.json()["attributes"]["land_area"], 500)
+
+
+class ListingPricingTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_basics", stdout=io.StringIO())
+        cls.admin = User.objects.create_user(
+            username="price-admin", password="pw", role="ADMIN"
+        )
+        cls.agent = User.objects.create_user(
+            username="price-agent", password="pw", role="AGENT"
+        )
+        cls.sale = DealType.objects.get(name="sale")
+        cls.rent = DealType.objects.get(name="mortgage_rent")
+        cls.property = Property.objects.create(
+            title="ملک دو منظوره",
+            internal_code="DUAL-1",
+            consultant=cls.agent,
+            property_type="APARTMENT",
+            property_type_ref=PropertyType.objects.get(name="apartment"),
+            area=120,
+            address="تهران",
+            neighborhood="مرکزی",
+            review_status=Property.ReviewStatus.APPROVED,
+        )
+
+    def setUp(self):
+        self.client.force_login(self.admin)
+
+    def test_a_sale_listing_records_a_sale_price(self):
+        response = self.client.post(
+            "/listings/api/listings/",
+            {
+                "title": "فروش",
+                "property": self.property.pk,
+                "publishChannel": "WEBSITE",
+                "dealType": self.sale.pk,
+                "salePrice": 18_000_000_000,
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201, response.content[:400])
+
+        body = response.json()
+        self.assertEqual(body["dealTypeName"], "sale")
+        self.assertEqual(int(float(body["salePrice"])), 18_000_000_000)
+        self.assertIsNone(body["deposit"])
+
+    def test_a_rental_listing_records_a_deposit_and_a_monthly_rent(self):
+        response = self.client.post(
+            "/listings/api/listings/",
+            {
+                "title": "رهن و اجاره",
+                "property": self.property.pk,
+                "publishChannel": "WEBSITE",
+                "dealType": self.rent.pk,
+                "deposit": 800_000_000,
+                "monthlyRent": 45_000_000,
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201, response.content[:400])
+
+        body = response.json()
+        self.assertEqual(int(float(body["deposit"])), 800_000_000)
+        self.assertEqual(int(float(body["monthlyRent"])), 45_000_000)
+        self.assertIsNone(body["salePrice"])
+
+    def test_one_property_can_be_for_sale_and_for_rent_at_once(self):
+        for payload in (
+            {
+                "title": "فروش",
+                "property": self.property.pk,
+                "publishChannel": "WEBSITE",
+                "dealType": self.sale.pk,
+                "salePrice": 18_000_000_000,
+            },
+            {
+                "title": "اجاره",
+                "property": self.property.pk,
+                "publishChannel": "WEBSITE",
+                "dealType": self.rent.pk,
+                "deposit": 800_000_000,
+                "monthlyRent": 45_000_000,
+            },
+        ):
+            response = self.client.post(
+                "/listings/api/listings/", payload, content_type="application/json"
+            )
+            self.assertEqual(response.status_code, 201, response.content[:400])
+
+        listings = Listing.objects.filter(property=self.property)
+        self.assertEqual(listings.count(), 2)
+        self.assertEqual(
+            {listing.deal_type.name for listing in listings},
+            {"sale", "mortgage_rent"},
+            "the same property carries two different deal types simultaneously",
+        )
+
+    def test_listing_custom_fields_are_stored(self):
+        deposit_attr = Attribute.objects.create(
+            name="commission",
+            display_name="کمیسیون",
+            data_type=Attribute.DataType.DECIMAL,
+            entity=Attribute.Entity.LISTING,
+        )
+        response = self.client.post(
+            "/listings/api/listings/",
+            {
+                "title": "با کمیسیون",
+                "property": self.property.pk,
+                "publishChannel": "WEBSITE",
+                "dealType": self.sale.pk,
+                "attributes": {"commission": "2.5"},
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201, response.content[:400])
+        self.assertEqual(float(response.json()["attributes"]["commission"]), 2.5)
+
+
+class PricingMigrationTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_basics", stdout=io.StringIO())
+        cls.agent = User.objects.create_user(
+            username="mig-agent", password="pw", role="AGENT"
+        )
+
+    def _property(self, code, deal_type, price):
+        return Property.objects.create(
+            title=f"ملک {code}",
+            internal_code=code,
+            consultant=self.agent,
+            property_type="APARTMENT",
+            deal_type=deal_type,
+            price=price,
+            area=100,
+            address="آدرس",
+            neighborhood="محله",
+        )
+
+    def test_a_sale_price_lands_on_the_listing(self):
+        prop = self._property("MIG-1", "SALE", 5_000_000_000)
+        listing = Listing.objects.create(
+            property=prop,
+            title="آگهی",
+            publish_channel="WEBSITE",
+            created_by=self.agent,
+            deal_type=DealType.objects.get(name="sale"),
+        )
+
+        call_command("move_pricing_to_listings", stdout=io.StringIO())
+
+        listing.refresh_from_db()
+        self.assertEqual(int(listing.sale_price), 5_000_000_000)
+
+    def test_an_ambiguous_rental_amount_is_not_inferred_as_a_deposit(self):
+        prop = self._property("MIG-2", "RENT", 900_000_000)
+        listing = Listing.objects.create(
+            property=prop,
+            title="آگهی",
+            publish_channel="WEBSITE",
+            created_by=self.agent,
+            deal_type=DealType.objects.get(name="mortgage_rent"),
+        )
+
+        call_command("move_pricing_to_listings", stdout=io.StringIO())
+
+        listing.refresh_from_db()
+        self.assertIsNone(listing.deposit)
+        prop.refresh_from_db()
+        self.assertTrue(prop.legacy_data["pricing_review_required"])
+        self.assertIsNone(listing.sale_price)
+
+    def test_a_property_with_no_listing_gets_one_so_the_price_survives(self):
+        prop = self._property("MIG-3", "SALE", 7_000_000_000)
+
+        call_command("move_pricing_to_listings", stdout=io.StringIO())
+
+        listing = Listing.objects.get(property=prop)
+        self.assertEqual(int(listing.sale_price), 7_000_000_000)
+        self.assertEqual(listing.status, Listing.Status.DRAFT)
+
+    def test_an_existing_price_is_never_overwritten(self):
+        prop = self._property("MIG-4", "SALE", 5_000_000_000)
+        listing = Listing.objects.create(
+            property=prop,
+            title="آگهی",
+            publish_channel="WEBSITE",
+            created_by=self.agent,
+            deal_type=DealType.objects.get(name="sale"),
+            sale_price=9_999,
+        )
+
+        call_command("move_pricing_to_listings", stdout=io.StringIO())
+
+        listing.refresh_from_db()
+        self.assertEqual(int(listing.sale_price), 9_999)
+
+    def test_running_it_twice_changes_nothing(self):
+        self._property("MIG-5", "SALE", 3_000_000_000)
+        call_command("move_pricing_to_listings", stdout=io.StringIO())
+        first = Listing.objects.count()
+
+        call_command("move_pricing_to_listings", stdout=io.StringIO())
+
+        self.assertEqual(Listing.objects.count(), first)
+
+
+class NullPriceRobustnessTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_basics", stdout=io.StringIO())
+        cls.agent = User.objects.create_user(
+            username="null-agent", password="pw", role="AGENT"
+        )
+        cls.admin = User.objects.create_user(
+            username="null-admin", password="pw", role="ADMIN"
+        )
+        Property.objects.create(
+            title="بدون قیمت",
+            internal_code="NULL-1",
+            consultant=cls.agent,
+            property_type="APARTMENT",
+            area=100,
+            address="آدرس",
+            neighborhood="مشترک",
+        )
+        priced = Property.objects.create(
+            title="با قیمت",
+            internal_code="NULL-2",
+            consultant=cls.agent,
+            property_type="APARTMENT",
+            area=100,
+            address="آدرس",
+            neighborhood="مشترک",
+        )
+        Listing.objects.create(property=priced, title="آگهی با قیمت", publish_channel="WEBSITE", created_by=cls.agent, sale_price=1_000_000_000)
+
+    def test_the_neighbourhood_average_ignores_properties_without_a_price(self):
+        from apps.analytics.metrics import build_neighborhood_price_per_sqm_map
+
+        averages = build_neighborhood_price_per_sqm_map()
+        self.assertEqual(averages["مشترک"], 10_000_000)
+
+    def test_listing_the_properties_still_works(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/properties/api/properties/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_the_scope_report_still_works(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/api/reports/scope/")
+        self.assertEqual(response.status_code, 200)

@@ -1,0 +1,566 @@
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { cx } from "../../../shared/lib/utils";
+import { Page, Property, ConsultantItem } from "../../../shared/lib/types";
+import { toPersianType, toPersianPropertyStatus, consultantLabel } from "../../../shared/lib/utils";
+import { Btn } from "../../../shared/components/ui/Btn";
+import { Card } from "../../../shared/components/ui/Card";
+import { SelectField } from "../../../shared/components/ui/SelectField";
+import { ProfileAvatar } from "../../../shared/components/ui/ProfileAvatar";
+import { EmptyState } from "../../../shared/components/ui/EmptyState";
+import { PageHeader } from "../../../shared/components/ui/PageHeader";
+import { ConfirmModal } from "../../../shared/components/ConfirmModal";
+import { Pagination } from "../../../shared/components/Pagination";
+import { DistrictCombobox } from "../../../shared/components/ui/DistrictCombobox";
+import { CityCombobox } from "../../../shared/components/ui/CityCombobox";
+import { ConsultantCombobox } from "../../../shared/components/ui/ConsultantCombobox";
+import { useLocationTree } from "../../../shared/components/ui/LocationSelect";
+import { useBasicsCatalog } from "../../../shared/lib/useAttributeSchema";
+import { apiFetch } from "../../../shared/lib/apiClient";
+import { usePermissions } from "../../../shared/lib/permissions";
+import { toast } from "../../../shared/lib/utils";
+import { PROPERTY_STATUSES } from "../../../shared/lib/constants";
+import { statusBadge } from "../../../shared/components/ui/StatusBadge";
+import { ActionMenu } from "../../../shared/components/ActionMenu";
+import {
+  Building2, Plus, MapPin, Eye, Edit2, Archive, Search,
+  SlidersHorizontal, LayoutGrid, List, Users, Phone, UserRound,
+} from "lucide-react";
+
+function PropertiesListView({
+  navigate,
+  properties,
+  consultants,
+  consultantId,
+  openPropertyDetail,
+  openPropertyEdit,
+  onArchive,
+  csrfToken,
+  userName,
+  variant = "mine",
+}: {
+  navigate: (p: Page) => void;
+  properties?: Property[];
+  consultants?: ConsultantItem[];
+  openPropertyDetail: (id: string) => void;
+  openPropertyEdit: (id: string) => void;
+  consultantId: string | null;
+  onArchive: (id: string) => void;
+  csrfToken?: string;
+  userName?: string;
+  variant?: "mine" | "all";
+}) {
+  const { can } = usePermissions();
+  const canCreateProperty = can("property.create");
+  const canEditProperty = can("property.edit");
+  const canArchiveProperty = can("property.archive");
+  const [confirmArchive, setConfirmArchive] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [search, setSearch] = useState("");
+  const [view, setView] = useState<"card" | "table">("card");
+  const [showFilters, setShowFilters] = useState(false);
+  const [propertyTypeRef, setPropertyTypeRef] = useState("");
+  const [filters, setFilters] = useState({
+    consultant: "",
+    city: "",
+    district: "",
+    propertyStatus: "",
+  });
+
+  const { catalog } = useBasicsCatalog(csrfToken);
+  const { tree: locationTree } = useLocationTree(csrfToken);
+
+  const allCities = (locationTree || []).flatMap((prov: any) => prov.cities || []);
+  const filteredDistricts = (() => {
+    if (!filters.city) {
+      const fromTree = allCities.flatMap((c: any) => (c.districts || []).map((d: any) => d.displayName));
+      if (fromTree.length > 0) return Array.from(new Set(fromTree));
+      return [];
+    }
+    const city = allCities.find((c: any) => c.displayName === filters.city);
+    if (!city) return [];
+    return (city.districts || []).map((d: any) => d.displayName);
+  })();
+
+  const [serverProperties, setServerProperties] = useState<Property[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [serverLoading, setServerLoading] = useState(false);
+
+  const fetchServerProperties = useCallback(async () => {
+    setServerLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.append("page", String(currentPage));
+      params.append("page_size", String(pageSize));
+      if (search.trim()) params.append("q", search.trim());
+      if (filters.consultant) params.append("consultantId", filters.consultant);
+      if (propertyTypeRef) params.append("propertyTypeRef", propertyTypeRef);
+      if (filters.city) params.append("city", filters.city);
+      if (filters.district) params.append("district", filters.district);
+      if (filters.propertyStatus) params.append("propertyStatus", filters.propertyStatus);
+
+      const res = await apiFetch(`/properties/api/properties/?${params.toString()}`, { method: "GET" }, csrfToken);
+      if (!res.ok) throw new Error("خطا در دریافت املاک");
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setServerProperties(data);
+        setTotalCount(data.length);
+      } else {
+        const results = data.results ?? [];
+        setServerProperties(results);
+        setTotalCount(data.count ?? results.length);
+      }
+    } catch (err) {
+      console.error("Error fetching properties:", err);
+      setServerProperties([]);
+      setTotalCount(0);
+    } finally {
+      setServerLoading(false);
+    }
+  }, [currentPage, pageSize, search, filters, propertyTypeRef, variant, csrfToken]);
+
+  useEffect(() => {
+    fetchServerProperties();
+  }, [fetchServerProperties]);
+
+  const source = serverProperties;
+
+  const showConsultantFilter = false;
+
+  const consultantOptions = useMemo<ConsultantItem[]>(() => {
+    const seen = new Map<string, ConsultantItem>();
+    const add = (id: string, name: string) => {
+      if (!id || seen.has(id)) return;
+      seen.set(id, {
+        id,
+        full_name: name,
+        user: { id, username: name, role: "AGENT", name, email: "", mobile: "" },
+      } as any);
+    };
+    
+    if (consultantId) {
+      const selfProp = source.find(
+        (p) => String(p.consultantId ?? p.consultant ?? "") === String(consultantId)
+      );
+      add(
+        String(consultantId),
+        selfProp?.consultantName || consultantLabel(selfProp || {}) || userName || "من"
+      );
+    }
+    if (variant === "all" && consultants && consultants.length > 0) {
+      consultants.forEach((c) => {
+        add(
+          String(c.user?.id ?? c.id),
+          c.full_name || c.user?.username || "نامشخص"
+        );
+      });
+    } else {
+      source.forEach((p) => {
+        add(
+          String(p.consultantId ?? p.consultant ?? ""),
+          p.consultantName || consultantLabel(p) || "نامشخص"
+        );
+      });
+    }
+    return Array.from(seen.values());
+  }, [source, consultants, variant, consultantId, userName]);
+
+  const paginated = source;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [consultantId, filters]);
+
+  const setFilter = (k: string, v: string) => {
+    setFilters((p) => ({ ...p, [k]: v }));
+    setCurrentPage(1);
+  };
+
+  const activeFilterCount = Object.values(filters).filter(Boolean).length + (propertyTypeRef ? 1 : 0);
+
+  const isMine = variant === "mine";
+  const isDraftProperty = (p: Property) =>
+    String((p as any).propertyStatus ?? (p as any).status ?? "").toLowerCase() === "draft";
+  const ownerName = (p: Property) =>
+    [p.ownerFirstName, p.ownerLastName].filter(Boolean).join(" ").trim();
+  const pageTitle = isMine ? "ملک های من" : "همه املاک";
+  const pageSubtitle = isMine
+    ? `${totalCount.toLocaleString("fa-IR")} ملک قابل مشاهده`
+    : `${totalCount.toLocaleString("fa-IR")} ملک در سیستم`;
+  const tableColumns = isMine ? 9 : 7;
+
+  const canManage = (p: Property) =>
+    isMine || String(p.consultantId ?? p.consultant ?? "") === String(consultantId ?? "");
+
+  const rowActions = (p: Property) => [
+    { label: "مشاهده جزئیات", icon: <Eye size={12} />, onClick: () => openPropertyDetail(String(p.id)) },
+    ...(canManage(p) && canEditProperty
+      ? [{ label: "ویرایش", icon: <Edit2 size={12} />, onClick: () => openPropertyEdit(String(p.id)) }]
+      : []),
+    ...(canManage(p) && canArchiveProperty && !isDraftProperty(p)
+      ? [{ label: "بایگانی", icon: <Archive size={12} />, onClick: () => setConfirmArchive(String(p.id)) }]
+      : []),
+  ];
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      <PageHeader
+        title={pageTitle}
+        subtitle={pageSubtitle}
+        actions={
+          canCreateProperty ? (
+            <Btn variant="primary" size="sm" onClick={() => navigate("add-property")}>
+              <Plus size={13} />
+              افزودن ملک
+            </Btn>
+          ) : undefined
+        }
+      />
+
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="relative flex-1 min-w-48 max-w-72">
+          <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
+            placeholder="جستجوی عنوان، کد یا محله…"
+            className="w-full pl-10 pr-3 py-2 text-sm rounded-xl border border-border bg-card outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={cx(
+            "flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-medium transition-colors",
+            showFilters || activeFilterCount > 0 ? "border-primary bg-primary/5 text-primary" : "border-border bg-card hover:bg-secondary"
+          )}
+        >
+          <SlidersHorizontal size={12} />
+          فیلترها
+          {activeFilterCount > 0 && (
+            <span className="w-4 h-4 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">{activeFilterCount}</span>
+          )}
+        </button>
+        {activeFilterCount > 0 && (
+          <button
+            onClick={() => {
+              setFilters({ consultant: "", city: "", district: "", propertyStatus: "" });
+              setPropertyTypeRef("");
+              setCurrentPage(1);
+            }}
+            className="text-xs text-destructive hover:underline"
+          >
+            پاک کردن فیلترها
+          </button>
+        )}
+        <div className="ml-auto flex items-center border border-border rounded-xl overflow-hidden bg-card">
+          <button
+            onClick={() => setView("card")}
+            className={cx("px-2.5 py-1.5 transition-colors", view === "card" ? "bg-primary text-primary-foreground" : "hover:bg-secondary text-muted-foreground")}
+          >
+            <LayoutGrid size={14} />
+          </button>
+          <button
+            onClick={() => setView("table")}
+            className={cx("px-2.5 py-1.5 transition-colors", view === "table" ? "bg-primary text-primary-foreground" : "hover:bg-secondary text-muted-foreground")}
+          >
+            <List size={14} />
+          </button>
+        </div>
+      </div>
+
+      {showFilters && (
+        <Card className="p-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 items-end">
+            {showConsultantFilter && (
+              <ConsultantCombobox
+                value={filters.consultant}
+                onChange={(v) => setFilter("consultant", v)}
+                consultants={consultantOptions}
+              />
+            )}
+            <SelectField
+              placeholder="همه انواع"
+              value={propertyTypeRef}
+              onChange={(v) => {
+                setPropertyTypeRef(v);
+                setCurrentPage(1);
+              }}
+              options={(catalog?.propertyTypes ?? []).map((t) => ({ label: t.displayName, value: String(t.id) }))}
+            />
+            <CityCombobox
+              value={filters.city}
+              onChange={(v) => {
+                const selectedCity = allCities.find((c) => c.displayName === v);
+                const cityDistricts = selectedCity ? selectedCity.districts.map((d: any) => d.displayName) : [];
+                if (filters.district && v && !cityDistricts.includes(filters.district)) {
+                  setFilters((prev) => ({ ...prev, city: v, district: "" }));
+                  setCurrentPage(1);
+                } else {
+                  setFilter("city", v);
+                }
+              }}
+              citiesList={allCities.map((c) => c.displayName)}
+            />
+            <DistrictCombobox value={filters.district} onChange={(v) => setFilter("district", v)} districtsList={filteredDistricts} />
+            <SelectField
+              placeholder="همه وضعیت‌ها"
+              value={filters.propertyStatus}
+              onChange={(v) => setFilter("propertyStatus", v)}
+              options={PROPERTY_STATUSES.map((s) => ({ label: toPersianPropertyStatus(s), value: s }))}
+            />
+          </div>
+        </Card>
+      )}
+
+      {serverLoading && source.length === 0 ? (
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-12 bg-muted rounded-xl animate-pulse" />
+          ))}
+        </div>
+      ) : source.length === 0 ? (
+        <EmptyState
+          icon={<Building2 size={28} />}
+          title="ملکی وجود ندارد"
+          description={isMine
+            ? "املاک واگذارشده به شما در اینجا نمایش داده می‌شوند."
+            : "هیچ ملکی در سیستم ثبت نشده است."}
+          action={
+            canCreateProperty ? (
+              <Btn variant="primary" size="sm" onClick={() => navigate("add-property")}>
+                <Plus size={13} />
+                اولین ملک را اضافه کنید
+              </Btn>
+            ) : undefined
+          }
+        />
+      ) : view === "card" ? (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginated.length === 0 ? (
+              <div className="col-span-full py-12 text-center text-sm text-muted-foreground">
+                ملکی با فیلترهای فعلی پیدا نشد.
+              </div>
+            ) : (
+              paginated.map((p) => {
+                const cover = p.imageUrl || p.images?.[0]?.url;
+                return (
+                <Card
+                  key={p.id}
+                  hover
+                  onClick={() => openPropertyDetail(String(p.id))}
+                  className="overflow-hidden"
+                >
+                  <div
+                    className={cx("h-32 relative flex items-end p-4", !cover && (p.gradient || "from-emerald-500 to-teal-600"))}
+                    style={cover ? { backgroundImage: `url(${cover})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                    <div
+                      className="absolute top-3 right-3 z-10"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ActionMenu actions={rowActions(p)} />
+                    </div>
+                    <div className="absolute top-3 left-3 flex gap-1.5 flex-wrap z-10">
+                    </div>
+                    <div className="relative z-10">
+                      <div className="text-white/90 text-xs flex items-center gap-1">
+                        <MapPin size={10} />
+                        {p.locationPath || [p.provinceName, p.cityName, p.district].filter(Boolean).join(" / ") || p.district || "—"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4">
+                    <p className="text-xs text-muted-foreground font-mono mb-0.5">
+                      {p.internalCode || "—"}
+                    </p>
+                    <h3 className="text-xs font-semibold mb-2 line-clamp-1">
+                      {p.title || "بدون عنوان"}
+                    </h3>
+                    {isMine && (ownerName(p) || p.ownerPhone) && (
+                      <p className="text-[11px] text-muted-foreground mb-2 flex items-center gap-1.5 flex-wrap">
+                        <UserRound size={11} className="flex-shrink-0" />
+                        <span className="truncate">{ownerName(p) || "—"}</span>
+                        {p.ownerPhone && (
+                          <span className="flex items-center gap-1" dir="ltr">
+                            <Phone size={10} />
+                            {p.ownerPhone}
+                          </span>
+                        )}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between gap-2">
+                      {statusBadge(p.propertyStatus || "available")}
+                      {variant === "all" && (
+                        <div className="flex items-center gap-1.5">
+                          <ProfileAvatar
+                            initials={(p.consultantName || "??").split(" ").map((w) => w[0]).join("").slice(0, 2)}
+                            size="xs"
+                          />
+                          <span className="text-[10px] text-muted-foreground truncate max-w-24">{p.consultantName || "کارشناس"}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+                );
+              })
+            )}
+          </div>
+          {paginated.length > 0 && (
+            <div className="mt-4 px-1">
+              <Pagination
+                page={currentPage}
+                total={totalCount}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(s) => {
+                  setPageSize(s);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-border bg-secondary/50 sticky top-0 z-10">
+                  <tr>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">کد</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">ملک</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">نوع</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">محله</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">وضعیت</th>
+                    {isMine && <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">مالک</th>}
+                    {isMine && <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">شماره موبایل مالک</th>}
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">کارشناس</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">عملیات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {paginated.length === 0 ? (
+                    <tr>
+                      <td colSpan={tableColumns} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                        ملکی با فیلترهای فعلی پیدا نشد.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginated.map((p) => (
+                      <tr key={p.id} className="hover:bg-secondary/30 transition-colors">
+                        <td className="px-4 py-3 text-xs font-mono text-muted-foreground">{p.internalCode}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-xs max-w-40 truncate">{p.title}</p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{toPersianType(p.type || "")}</td>
+                        <td className="px-4 py-3 text-xs">
+                          <span className="flex items-center gap-1">
+                            <MapPin size={10} className="text-muted-foreground" />
+                            {p.district || p.neighborhood || "—"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">{statusBadge(p.propertyStatus || "available")}</td>
+                        {isMine && (
+                          <td className="px-4 py-3 text-xs">
+                            <span className="flex items-center gap-1.5">
+                              <UserRound size={11} className="text-muted-foreground flex-shrink-0" />
+                              <span className="truncate max-w-32">{ownerName(p) || "—"}</span>
+                            </span>
+                          </td>
+                        )}
+                        {isMine && (
+                          <td className="px-4 py-3 text-xs text-muted-foreground" dir="ltr">
+                            {p.ownerPhone || "—"}
+                          </td>
+                        )}
+                        <td className="px-4 py-3">
+                          {variant === "all" ? (
+                            <div className="flex items-center gap-1.5">
+                              <ProfileAvatar
+                                initials={(p.consultantName || "??").split(" ").map((w) => w[0]).join("").slice(0, 2)}
+                                size="xs"
+                              />
+                              <span className="text-xs">{p.consultantName || "—"}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">خودم</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-0.5">
+                            <button onClick={() => openPropertyDetail(String(p.id))} className="p-1.5 hover:bg-secondary rounded-lg transition-colors" title="مشاهده">
+                              <Eye size={13} className="text-muted-foreground" />
+                            </button>
+                            {canManage(p) && canEditProperty && (
+                              <button onClick={() => openPropertyEdit(String(p.id))} className="p-1.5 hover:bg-secondary rounded-lg transition-colors" title="ویرایش">
+                                <Edit2 size={13} className="text-muted-foreground" />
+                              </button>
+                            )}
+                            {canManage(p) && canArchiveProperty && !isDraftProperty(p) && (
+                              <button onClick={() => setConfirmArchive(String(p.id))} className="p-1.5 hover:bg-amber-50 dark:hover:bg-amber-500/12 rounded-lg transition-colors" title="بایگانی">
+                                <Archive size={13} className="text-muted-foreground" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {paginated.length > 0 && (
+              <div className="px-4 py-3 border-t border-border bg-card">
+                <Pagination
+                  page={currentPage}
+                  total={totalCount}
+                  pageSize={pageSize}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={(s) => {
+                    setPageSize(s);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
+            )}
+          </Card>
+        </>
+      )}
+
+      <ConfirmModal
+        open={!!confirmArchive}
+        title="بایگانی ملک؟"
+        message="این ملک بایگانی خواهد شد. هر کارشناس فقط می‌تواند املاکی را که به او واگذار شده بایگانی کند."
+        onConfirm={() => {
+          if (confirmArchive) {
+            const id = confirmArchive;
+            setConfirmArchive(null);
+            void Promise.resolve(onArchive(id)).then(() => fetchServerProperties());
+          } else {
+            setConfirmArchive(null);
+          }
+        }}
+        onCancel={() => setConfirmArchive(null)}
+      />
+    </div>
+  );
+}
+
+function MyPropertiesPage(props: React.ComponentProps<typeof PropertiesListView>) {
+  return <PropertiesListView {...props} variant="mine" />;
+}
+
+function AllPropertiesPage(props: React.ComponentProps<typeof PropertiesListView>) {
+  return <PropertiesListView {...props} variant="all" />;
+}
+
+export { MyPropertiesPage, AllPropertiesPage };

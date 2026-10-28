@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1730">
+  <meta name="description" content="طرح مفهومی ماژول یکپارچه حسابداری و حسابرسی دپارتمان املاک زمینکس">
+  <title>طرح مفهومی | حسابداری و حسابرسی زمینکس</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17243b;
+      --ink-2: #33445f;
+      --muted: #68758a;
+      --muted-2: #8290a4;
+      --paper: #ffffff;
+      --canvas: #f4f7fb;
+      --line: #e1e8f0;
+      --navy: #0b1730;
+      --navy-2: #132747;
+      --teal: #0f9c8d;
+      --teal-dark: #0b786d;
+      --teal-soft: #e8f7f4;
+      --blue: #3f70bd;
+      --blue-soft: #edf4ff;
+      --amber: #b9791c;
+      --amber-soft: #fff5e5;
+      --violet: #7055b5;
+      --violet-soft: #f2efff;
+      --red: #b5474d;
+      --red-soft: #fff0f0;
+      --shadow: 0 18px 50px rgba(17, 36, 67, .08);
+      --radius: 22px;
+      --font: Vazirmatn, IRANSansX, IRANSans, Tahoma, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.9;
+      text-rendering: optimizeLegibility;
+    }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; }
+    .container { width: min(1160px, calc(100% - 40px)); margin-inline: auto; }
+    .skip-link { position: absolute; top: -60px; right: 16px; z-index: 100; padding: 8px 14px; background: white; border-radius: 10px; }
+    .skip-link:focus { top: 12px; }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 20;
+      border-bottom: 1px solid rgba(225, 232, 240, .85);
+      background: rgba(255, 255, 255, .92);
+      backdrop-filter: blur(16px);
+    }
+    .topbar-inner { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+    .brand { display: flex; align-items: center; gap: 11px; flex: 0 0 auto; }
+    .brand-mark {
+      width: 38px; height: 38px; display: grid; place-items: center; border-radius: 13px;
+      color: white; background: linear-gradient(140deg, #1aa897, #3b73bc); font-weight: 800; font-size: 17px;
+      box-shadow: 0 8px 18px rgba(15, 156, 141, .24);
+    }
+    .brand-name { font-weight: 800; letter-spacing: .02em; color: var(--navy); line-height: 1.1; }
+    .brand-sub { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; font-weight: 500; letter-spacing: 0; }
+    .nav-links { display: flex; align-items: center; gap: 20px; color: #506078; font-size: 12px; }
+    .nav-links a { transition: color .18s ease; }
+    .nav-links a:hover { color: var(--teal-dark); }
+    .print-button {
+      border: 1px solid #d8e4ec; border-radius: 12px; background: white; color: var(--navy);
+      padding: 8px 13px; cursor: pointer; font-size: 12px; font-weight: 700; white-space: nowrap;
+    }
+    .print-button:hover { border-color: var(--teal); color: var(--teal-dark); }
+
+    .hero {
+      position: relative; overflow: hidden; color: #fff;
+      background: radial-gradient(circle at 12% 18%, rgba(39, 185, 164, .28), transparent 28%),
+                  radial-gradient(circle at 88% 80%, rgba(68, 116, 196, .3), transparent 30%),
+                  linear-gradient(125deg, #09152d 0%, #102548 55%, #103a4c 100%);
+      padding: 58px 0 50px;
+    }
+    .hero::before, .hero::after { content: ""; position: absolute; border: 1px solid rgba(255,255,255,.09); border-radius: 50%; pointer-events: none; }
+    .hero::before { width: 470px; height: 470px; top: -300px; left: 10%; }
+    .hero::after { width: 390px; height: 390px; bottom: -300px; right: 2%; }
+    .hero-grid { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr); gap: 48px; align-items: center; }
+    .eyebrow { display: inline-flex; gap: 9px; align-items: center; color: #a8e8db; font-size: 12px; font-weight: 700; letter-spacing: .02em; }
+    .eyebrow::before { content: ""; width: 24px; height: 2px; background: #44c6b1; border-radius: 2px; }
+    h1 { margin: 13px 0 15px; max-width: 760px; font-size: clamp(30px, 4vw, 47px); line-height: 1.42; letter-spacing: -.035em; }
+    .hero-lead { max-width: 740px; margin: 0; color: #d3deed; font-size: 16px; line-height: 2; }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 25px; }
+    .hero-tag { padding: 6px 12px; border: 1px solid rgba(255,255,255,.17); border-radius: 999px; color: #e9f3fa; background: rgba(255,255,255,.07); font-size: 11px; }
+    .hero-card {
+      padding: 23px; border: 1px solid rgba(255,255,255,.15); border-radius: 24px;
+      background: rgba(255,255,255,.08); box-shadow: 0 20px 55px rgba(0,0,0,.16); backdrop-filter: blur(12px);
+    }
+    .hero-card-label { color: #9db2c9; font-size: 11px; }
+    .hero-card-title { margin: 5px 0 18px; font-size: 18px; font-weight: 800; }
+    .mini-chain { display: grid; gap: 9px; }
+    .mini-node { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; background: rgba(9,21,45,.35); font-size: 12px; }
+    .mini-node b { width: 23px; height: 23px; display: grid; place-items: center; border-radius: 8px; color: #062a2a; background: #7fe0ce; font-size: 11px; }
+    .mini-arrow { padding-right: 16px; color: #87d7c9; font-size: 15px; line-height: .8; }
+    .hero-note { margin-top: 17px; color: #b8c9dc; font-size: 11px; }
+
+    main { padding: 30px 0 72px; }
+    .section { margin-top: 30px; scroll-margin-top: 90px; }
+    .section:first-child { margin-top: 0; }
+    .section-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 17px; }
+    .section-kicker { color: var(--teal-dark); font-size: 11px; font-weight: 800; letter-spacing: .06em; }
+    h2 { margin: 3px 0 0; color: var(--navy); font-size: clamp(22px, 2.4vw, 29px); line-height: 1.5; letter-spacing: -.02em; }
+    h3 { margin: 0 0 8px; color: var(--navy); font-size: 16px; line-height: 1.6; }
+    p { margin: 0 0 11px; }
+    .section-intro { max-width: 780px; color: var(--muted); font-size: 13px; }
+    .section-mark { flex: 0 0 auto; color: var(--muted-2); font-size: 11px; }
+    .card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); box-shadow: var(--shadow); }
+    .card-pad { padding: 22px; }
+    .subtle { color: var(--muted); font-size: 13px; }
+    .small { color: var(--muted); font-size: 11px; }
+    .tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #f0f3f8; color: #4f5d73; font-size: 10px; font-weight: 700; }
+    .tag.teal { background: var(--teal-soft); color: var(--teal-dark); }
+    .tag.blue { background: var(--blue-soft); color: #315d9d; }
+    .tag.amber { background: var(--amber-soft); color: #916013; }
+    .tag.violet { background: var(--violet-soft); color: #604a9c; }
+
+    .summary-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr); gap: 16px; }
+    .summary-main { padding: 25px; }
+    .summary-main p { color: var(--ink-2); font-size: 14px; }
+    .principle {
+      margin-top: 18px; padding: 14px 16px; border-right: 3px solid var(--teal); border-radius: 12px 0 0 12px;
+      background: #f0faf8; color: #24544f; font-size: 13px; font-weight: 700;
+    }
+    .summary-side { padding: 21px; background: linear-gradient(145deg, #fff, #f8fbff); }
+    .fact-list { display: grid; gap: 10px; margin-top: 12px; }
+    .fact-row { display: flex; align-items: start; gap: 10px; font-size: 12px; color: var(--ink-2); }
+    .fact-check { flex: 0 0 auto; width: 21px; height: 21px; display: grid; place-items: center; border-radius: 7px; color: var(--teal-dark); background: var(--teal-soft); font-size: 12px; font-weight: 800; }
+
+    .scope-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
+    .scope-card { padding: 19px; min-height: 172px; }
+    .scope-icon { width: 38px; height: 38px; display: grid; place-items: center; margin-bottom: 12px; border-radius: 13px; background: var(--blue-soft); color: var(--blue); font-weight: 800; }
+    .scope-card:nth-child(2) .scope-icon, .scope-card:nth-child(5) .scope-icon { background: var(--teal-soft); color: var(--teal-dark); }
+    .scope-card:nth-child(3) .scope-icon, .scope-card:nth-child(6) .scope-icon { background: var(--violet-soft); color: var(--violet); }
+    .scope-card p { margin: 0; color: var(--muted); font-size: 12px; }
+    .scope-foot { margin-top: 14px; padding: 13px 16px; border: 1px solid #f0d9ac; border-radius: 14px; background: var(--amber-soft); color: #79571b; font-size: 12px; }
+
+    .workflow-shell { padding: 26px; overflow: hidden; }
+    .workflow { position: relative; display: grid; gap: 13px; padding: 2px 0; }
+    .workflow::before { content: ""; position: absolute; top: 20px; bottom: 20px; right: 23px; width: 2px; background: linear-gradient(var(--teal), #c9d8e8 72%, transparent); }
+    .flow-item { position: relative; padding-right: 60px; }
+    .flow-number { position: absolute; top: 13px; right: 0; z-index: 1; width: 47px; height: 47px; display: grid; place-items: center; border: 4px solid white; border-radius: 15px; background: var(--navy); color: white; font-size: 13px; font-weight: 800; box-shadow: 0 4px 12px rgba(11,23,48,.15); }
+    .flow-card { display: grid; grid-template-columns: minmax(180px,.55fr) minmax(0,1.45fr); gap: 15px; align-items: center; padding: 15px 18px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+    .flow-card h3 { margin: 0; font-size: 14px; }
+    .flow-card p { margin: 0; color: var(--muted); font-size: 12px; }
+    .flow-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+    .flow-item:nth-child(3n+2) .flow-number { background: var(--teal-dark); }
+    .flow-item:nth-child(3n) .flow-number { background: #5266a8; }
+    .flow-result { color: var(--teal-dark); font-weight: 700; }
+    .workflow-caption { margin-top: 18px; padding: 13px 16px; border-radius: 14px; background: #f4f7fb; color: var(--ink-2); font-size: 12px; }
+
+    .parallel-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-top: 17px; }
+    .parallel-step { position: relative; padding: 17px; border: 1px solid #cfe8e2; border-radius: 17px; background: linear-gradient(145deg, #f5fcfa, #fff); }
+    .parallel-step:not(:last-child)::after { content: "←"; position: absolute; left: -18px; top: 50%; z-index: 2; width: 24px; color: var(--teal-dark); font-size: 18px; font-weight: 800; transform: translateY(-50%); }
+    .parallel-step .index { color: var(--teal-dark); font-size: 10px; font-weight: 800; }
+    .parallel-step h3 { margin: 4px 0 3px; font-size: 13px; }
+    .parallel-step p { margin: 0; color: var(--muted); font-size: 11px; }
+    .exception-strip { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; margin-top: 15px; padding: 15px 18px; border: 1px solid #f1d2d3; border-radius: 16px; background: var(--red-soft); }
+    .exception-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; background: #f7dede; color: var(--red); font-weight: 900; }
+    .exception-strip strong { color: #87363b; font-size: 13px; }
+    .exception-strip span { color: #8a5659; font-size: 11px; }
+
+    .callout { padding: 18px 20px; border: 1px solid #cde4df; border-radius: 18px; background: linear-gradient(120deg, #eaf8f5, #f7fbff); }
+    .callout strong { display: block; margin-bottom: 5px; color: #125f57; font-size: 14px; }
+    .callout p { margin: 0; color: #466b6a; font-size: 12px; }
+    .journal-wrap { margin-top: 16px; overflow: hidden; }
+    .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; background: white; }
+    table { width: 100%; border-collapse: collapse; min-width: 720px; text-align: right; }
+    th, td { padding: 13px 15px; border-bottom: 1px solid #edf1f5; vertical-align: top; }
+    th { background: #f5f8fb; color: #45536b; font-size: 11px; font-weight: 800; white-space: nowrap; }
+    td { color: var(--ink-2); font-size: 12px; }
+    tr:last-child td { border-bottom: 0; }
+    td strong { color: var(--navy); }
+    .table-note { padding: 11px 14px; color: var(--muted); font-size: 10px; }
+
+    .roles-grid { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 11px; }
+    .role-card { padding: 17px 15px; border: 1px solid var(--line); border-radius: 17px; background: white; }
+    .role-badge { display: inline-flex; margin-bottom: 9px; padding: 4px 9px; border-radius: 999px; background: var(--blue-soft); color: #335e9c; font-size: 10px; font-weight: 800; }
+    .role-card:nth-child(2) .role-badge, .role-card:nth-child(4) .role-badge { background: var(--teal-soft); color: var(--teal-dark); }
+    .role-card:nth-child(3) .role-badge { background: var(--amber-soft); color: #8a6017; }
+    .role-card:nth-child(5) .role-badge { background: var(--violet-soft); color: var(--violet); }
+    .role-card h3 { margin: 0 0 5px; font-size: 13px; }
+    .role-card p { margin: 0; color: var(--muted); font-size: 11px; }
+
+    .control-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+    .control-card { display: flex; gap: 11px; align-items: flex-start; padding: 16px; border: 1px solid #ded9f2; border-radius: 17px; background: linear-gradient(140deg, #fff, #faf9ff); }
+    .control-icon { flex: 0 0 auto; width: 29px; height: 29px; display: grid; place-items: center; border-radius: 10px; background: var(--violet-soft); color: var(--violet); font-size: 12px; font-weight: 900; }
+    .control-card strong { display: block; margin-bottom: 3px; color: var(--navy); font-size: 12px; }
+    .control-card p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.8; }
+    .audit-chain { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin-top: 16px; padding: 15px; border-radius: 16px; background: var(--navy); color: #e8f0f8; font-size: 11px; }
+    .audit-chain b { color: #8fe0d2; font-weight: 700; }
+    .audit-chain .sep { color: #6e829e; }
+
+    .report-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; }
+    .report-card { position: relative; padding: 20px; overflow: hidden; }
+    .report-card::before { content: ""; position: absolute; top: -34px; left: -28px; width: 105px; height: 105px; border-radius: 50%; background: #eef4ff; }
+    .report-card:nth-child(2)::before { background: #e8f7f4; }
+    .report-card:nth-child(3)::before { background: #f2efff; }
+    .report-card h3, .report-card ul { position: relative; }
+    .report-card ul { margin: 10px 0 0; padding: 0 18px 0 0; color: var(--muted); font-size: 11px; }
+    .report-card li { margin: 5px 0; }
+    .report-caption { margin-top: 14px; color: var(--muted); font-size: 10px; }
+
+    .integration-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+    .integration-card { padding: 17px; border: 1px solid var(--line); border-radius: 17px; background: white; }
+    .integration-card .num { display: block; margin-bottom: 8px; color: var(--teal-dark); font-size: 10px; font-weight: 900; }
+    .integration-card h3 { margin: 0 0 5px; font-size: 13px; }
+    .integration-card p { margin: 0; color: var(--muted); font-size: 11px; }
+    .integration-note { margin-top: 13px; padding: 13px 16px; border-radius: 14px; background: var(--blue-soft); color: #405e89; font-size: 11px; }
+
+    .roadmap { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+    .phase { position: relative; padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: white; }
+    .phase-no { display: inline-flex; align-items: center; gap: 7px; color: var(--teal-dark); font-size: 10px; font-weight: 900; }
+    .phase-no::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 4px var(--teal-soft); }
+    .phase h3 { margin: 8px 0 6px; font-size: 14px; }
+    .phase p { margin: 0; color: var(--muted); font-size: 11px; }
+    .phase-result { display: block; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); color: #385e59; font-size: 10px; font-weight: 700; }
+
+    .acceptance-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px 18px; padding: 22px; }
+    .acceptance-item { display: flex; gap: 10px; align-items: flex-start; color: var(--ink-2); font-size: 12px; }
+    .acceptance-item .check { flex: 0 0 auto; width: 20px; height: 20px; display: grid; place-items: center; margin-top: 2px; border-radius: 7px; background: var(--teal-soft); color: var(--teal-dark); font-size: 11px; font-weight: 900; }
+
+    .decisions { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(270px,.85fr); gap: 15px; }
+    .decision-list { padding: 21px; }
+    .decision-list ul { margin: 0; padding: 0 20px 0 0; color: var(--ink-2); font-size: 12px; }
+    .decision-list li { margin: 7px 0; }
+    .decision-side { padding: 21px; border-color: #edd8b3; background: linear-gradient(145deg,#fffaf0,#fff); }
+    .decision-side h3 { color: #795719; }
+    .decision-side p { color: #7a6746; font-size: 12px; }
+
+    .final-banner { margin-top: 27px; padding: 23px 26px; border-radius: 20px; color: white; background: linear-gradient(115deg, #0b1730, #16435a); box-shadow: var(--shadow); }
+    .final-banner strong { display: block; margin-bottom: 6px; color: #9ae5d8; font-size: 15px; }
+    .final-banner p { margin: 0; color: #d6e3ef; font-size: 12px; }
+    footer { padding: 22px 0 34px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+    .footer-inner { display: flex; justify-content: space-between; gap: 15px; flex-wrap: wrap; }
+
+    @media (max-width: 960px) {
+      .nav-links { display: none; }
+      .hero-grid { grid-template-columns: 1fr; gap: 27px; }
+      .hero-card { max-width: 650px; }
+      .scope-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .roles-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      .control-grid, .integration-grid, .roadmap { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .parallel-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .parallel-step:nth-child(2)::after { display: none; }
+    }
+    @media (max-width: 640px) {
+      body { font-size: 14px; }
+      .container { width: min(100% - 24px, 1160px); }
+      .topbar-inner { min-height: 60px; }
+      .print-button { padding: 7px 10px; font-size: 10px; }
+      .hero { padding: 39px 0 34px; }
+      .hero-grid { gap: 22px; }
+      .hero-lead { font-size: 14px; }
+      .hero-card { padding: 18px; }
+      main { padding-top: 20px; }
+      .section { margin-top: 23px; }
+      .section-head { align-items: flex-start; flex-direction: column; gap: 4px; }
+      .summary-grid, .decisions { grid-template-columns: 1fr; }
+      .summary-main, .summary-side { padding: 19px; }
+      .scope-grid, .parallel-grid, .report-grid, .integration-grid, .roadmap, .roles-grid, .control-grid, .acceptance-grid { grid-template-columns: 1fr; }
+      .scope-card { min-height: unset; }
+      .workflow-shell { padding: 15px 12px; }
+      .workflow::before { right: 17px; }
+      .flow-item { padding-right: 45px; }
+      .flow-number { width: 37px; height: 37px; right: 0; top: 17px; border-radius: 12px; font-size: 11px; }
+      .flow-card { grid-template-columns: 1fr; gap: 5px; padding: 13px; }
+      .flow-card h3 { font-size: 13px; }
+      .parallel-step:not(:last-child)::after { content: "↓"; left: 50%; top: auto; bottom: -21px; transform: translateX(-50%); }
+      .parallel-step:nth-child(2)::after { display: block; }
+      .parallel-step:last-child::after { display: none; }
+      .exception-strip { grid-template-columns: auto 1fr; }
+      .exception-strip span { grid-column: 2; }
+      .acceptance-grid { padding: 17px; }
+      .audit-chain { justify-content: flex-start; }
+      .final-banner { padding: 19px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    }
+    @media print {
+      @page { size: A4; margin: 13mm; }
+      body { background: #fff; font-size: 10pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .topbar { position: static; border: 0; background: #fff; }
+      .nav-links, .print-button, .skip-link { display: none !important; }
+      .hero { padding: 25px 0; border-radius: 0 0 18px 18px; }
+      .hero-grid { grid-template-columns: 1.2fr .8fr; gap: 24px; }
+      h1 { font-size: 27pt; }
+      main { padding-top: 15px; }
+      .section { margin-top: 18px; break-inside: avoid; }
+      .card, .flow-card, .phase, .scope-card { box-shadow: none; break-inside: avoid; }
+      .workflow-shell { padding: 15px; }
+      .flow-card { padding: 9px 12px; }
+      .flow-item { break-inside: avoid; }
+      .parallel-grid { grid-template-columns: repeat(4,minmax(0,1fr)); }
+      .roles-grid { grid-template-columns: repeat(5,minmax(0,1fr)); }
+      .control-grid, .integration-grid, .roadmap { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .report-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      a { color: inherit; }
+      footer { padding-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">رفتن به محتوای اصلی</a>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="#top" aria-label="زمینکس، ابتدای سند">
+        <span class="brand-mark" aria-hidden="true">ز</span>
+        <span class="brand-name">زمینکس<span class="brand-sub">طرح مفهومی سامانه مالی</span></span>
+      </a>
+      <nav class="nav-links" aria-label="فهرست بخش‌ها">
+        <a href="#overview">خلاصه</a>
+        <a href="#workflow">فرایند</a>
+        <a href="#accounting">حسابداری</a>
+        <a href="#audit">حسابرسی</a>
+        <a href="#roadmap">نقشهٔ راه</a>
+      </nav>
+      <button class="print-button" type="button" onclick="window.print()">چاپ / ذخیره به PDF</button>
+    </div>
+  </header>
+
+  <section class="hero" id="top">
+    <div class="container hero-grid">
+      <div>
+        <div class="eyebrow">پیشنهاد مفهومی برای ارائه و بررسی کارفرما</div>
+        <h1>حسابداری و حسابرسیِ یکپارچه با دپارتمان املاک زمینکس</h1>
+        <p class="hero-lead">طرح عملیاتی پیشنهادی برای پیوند دادن پروندهٔ معامله و قرارداد به کمیسیون، دریافت‌وپرداخت، دفتر کل و شواهد حسابرسی؛ در همان بستر CRM و با ثبت دوباره‌نکردن اطلاعات.</p>
+        <div class="hero-tags" aria-label="دامنهٔ مفروض طرح">
+          <span class="hero-tag">واسطه‌گری فروش و اجاره</span>
+          <span class="hero-tag">حسابداری دوبل یکپارچه</span>
+          <span class="hero-tag">یک شرکت و یک شعبه</span>
+          <span class="hero-tag">بدون نگهداری وجوه امانی مشتری</span>
+          <span class="hero-tag">کنترل داخلی و آمادگی حسابرسی بیرونی</span>
+        </div>
+      </div>
+      <aside class="hero-card" aria-label="نمای سریع گردش مالی">
+        <div class="hero-card-label">نمای یک‌خطی فرایند</div>
+        <div class="hero-card-title">از رویداد ملکی تا گزارش قابل اتکا</div>
+        <div class="mini-chain">
+          <div class="mini-node"><b>۱</b><span>پروندهٔ معامله و قرارداد</span></div>
+          <div class="mini-arrow" aria-hidden="true">↓</div>
+          <div class="mini-node"><b>۲</b><span>محاسبه و تأیید کمیسیون</span></div>
+          <div class="mini-arrow" aria-hidden="true">↓</div>
+          <div class="mini-node"><b>۳</b><span>صورتحساب، وصول و سند دوبل</span></div>
+          <div class="mini-arrow" aria-hidden="true">↓</div>
+          <div class="mini-node"><b>۴</b><span>دفتر کل، گزارش و ردپای حسابرسی</span></div>
+        </div>
+        <div class="hero-note">هر عدد مالی باید تا معامله، مدرک و تأییدکننده قابل ردیابی باشد.</div>
+      </aside>
+    </div>
+  </section>
+
+  <main class="container" id="main">
+    <section class="section" id="overview">
+      <div class="section-head">
+        <div>
+          <div class="section-kicker">خلاصهٔ اجرایی</div>
+          <h2>یک جریان واحد؛ از معامله تا دفتر کل</h2>
+        </div>
+        <span class="section-mark">نسخهٔ مفهومی • مهر ۱۴۰۵</span>
+      </div>
+      <div class="summary-grid">
+        <article class="card summary-main">
+          <p>سامانهٔ پیشنهادی، فعالیت‌های مالی دفتر املاک را به پرونده‌های عملیاتی زمینکس متصل می‌کند. مشاور، معامله و قرارداد را ثبت می‌کند؛ کمیسیون با قواعد قابل تنظیم محاسبه و تأیید می‌شود؛ سپس صورتحساب، دریافت وجه و اسناد دوبل در زنجیره‌ای کنترل‌پذیر ثبت می‌شوند.</p>
+          <p>این طراحی برای ثبت درآمد واقعی دفتر از محل کمیسیون و خدمات آن است؛ نه ثبت ارزش کل ملک به‌عنوان درآمد. گزارش‌ها نیز تفاوت ارزش معامله، کارمزد کسب‌شده، صورتحساب‌شده و وصول‌شده را روشن نگه می‌دارند.</p>
+          <div class="principle">اصل طراحی: اطلاعات معامله یک‌بار ثبت شود؛ هر سند، گزارش و تغییر مالی به همان پروندهٔ معامله و مدارک آن پیوند بخورد.</div>
+        </article>
+        <aside class="card summary-side">
+          <h3>مبنای دامنهٔ پیشنهادی</h3>
+          <div class="fact-list">
+            <div class="fact-row"><span class="fact-check">✓</span><span>معاملات خرید، فروش و اجارهٔ واسطه‌گری در زمینکس ثبت می‌شوند.</span></div>
+            <div class="fact-row"><span class="fact-check">✓</span><span>دفتر، کمیسیون و هزینه‌های خودش را ثبت می‌کند؛ وجه امانی مشتری فعلاً خارج از دامنه است.</span></div>
+            <div class="fact-row"><span class="fact-check">✓</span><span>دفترکل دوبل، کنترل داخلی، گزارش مدیریتی و شواهد حسابرسی در دامنه‌اند.</span></div>
+            <div class="fact-row"><span class="fact-check">✓</span><span>الزامات رسمی ایران با حسابدار یا مشاور مالیاتی تأیید و سپس در سامانه پیکربندی می‌شوند.</span></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section" id="scope">
+      <div class="section-head">
+        <div>
+          <div class="section-kicker">مرز محصول</div>
+          <h2>چه چیزی در ماژول قرار می‌گیرد؟</h2>
+          <p class="section-intro">ماژول مالی به‌صورت بخشی از تجربهٔ فعلی زمینکس طراحی می‌شود: همان حساب کاربری، اطلاعات پایه و ارتباط با ملک، آگهی و مشاور؛ با سطح دسترسی مجزای مالی.</p>
+        </div>
+      </div>
+      <div class="scope-grid">
+        <article class="card scope-card"><div class="scope-icon">۱</div><h3>معامله و قرارداد</h3><p>پروندهٔ نهایی معامله، طرفین، مبلغ واقعی، تاریخ‌ها، مدارک و پیوند به ملک و آگهی.</p></article>
+        <article class="card scope-card"><div class="scope-icon">۲</div><h3>کمیسیون و صورتحساب</h3><p>محاسبهٔ قواعد کمیسیون، ثبت استثنا و تأیید، صدور صورتحساب و مدیریت مطالبات.</p></article>
+        <article class="card scope-card"><div class="scope-icon">۳</div><h3>دفتر کل دوبل</h3><p>کدینگ حساب‌ها، اسناد، دفتر کل، حساب‌های دریافتنی و پرداختنی و بستن دورهٔ مالی.</p></article>
+        <article class="card scope-card"><div class="scope-icon">۴</div><h3>صندوق، بانک و هزینه‌ها</h3><p>ثبت دریافت و پرداخت، تخصیص به صورتحساب، هزینه‌های دفتر و مغایرت‌گیری بانکی.</p></article>
+        <article class="card scope-card"><div class="scope-icon">۵</div><h3>پورسانت مشاور</h3><p>محاسبهٔ سهم، ثبت بدهی پورسانت، سررسید، تأیید و پرداخت قابل ردیابی.</p></article>
+        <article class="card scope-card"><div class="scope-icon">۶</div><h3>حسابرسی و مدیریت</h3><p>ردپای تغییرات، کنترل دسترسی، گزارش‌های مالی و مدیریتی و بستهٔ مدارک حسابرس.</p></article>
+      </div>
+      <div class="scope-foot"><strong>مرز مهم نسخهٔ نخست:</strong> دریافت، نگهداری و استرداد بیعانه یا ودیعهٔ متعلق به مشتریان در این دامنه قرار ندارد. در صورت نیاز آینده، وجوه امانی باید در زیر‌دفتر و حساب‌های بدهی جداگانه طراحی شوند و هرگز با درآمد دفتر مخلوط نشوند.</div>
+    </section>
+
+    <section class="section" id="workflow">
+      <div class="section-head">
+        <div>
+          <div class="section-kicker">شمای عملیاتی</div>
+          <h2>جریان اصلی: از CRM تا ثبت مالی</h2>
+          <p class="section-intro">شماره‌ها ترتیب مراحل را نشان می‌دهند. در نسخهٔ موبایل نیز فرایند به شکل عمودی و خوانا نمایش داده می‌شود.</p>
+        </div>
+        <span class="tag teal">پرونده ← سند ← گزارش</span>
+      </div>
+      <div class="card workflow-shell">
+        <ol class="workflow">
+          <li class="flow-item">
+            <span class="flow-number">۰۱</span>
+            <div class="flow-card"><div><h3>داده‌های CRM</h3><div class="flow-meta"><span class="tag blue">ملک</span><span class="tag blue">آگهی</span><span class="tag blue">طرفین</span><span class="tag blue">مشاور</span></div></div><p>از اطلاعات موجود زمینکس استفاده می‌شود؛ قیمت ثبت‌شده در آگهی به‌تنهایی مبلغ قطعی معامله نیست.</p></div>
+          </li>
+          <li class="flow-item">
+            <span class="flow-number">۰۲</span>
+            <div class="flow-card"><div><h3>ایجاد پروندهٔ معامله</h3><div class="flow-meta"><span class="tag">فروش / اجاره</span><span class="tag">مبلغ واقعی</span></div></div><p>مشاور معاملهٔ نهایی را ثبت می‌کند: طرفین، مبلغ، پرداخت‌کنندهٔ کمیسیون و اطلاعات پایهٔ قرارداد.</p></div>
+          </li>
+          <li class="flow-item">
+            <span class="flow-number">۰۳</span>
+            <div class="flow-card"><div><h3>ثبت قرارداد و مدارک</h3><div class="flow-meta"><span class="tag">قرارداد</span><span class="tag">الحاقیه</span><span class="tag">تاریخ امضا</span></div></div><p>نسخهٔ قرارداد و مدارک در پرونده پیوست می‌شود؛ اصلاح یا فسخ، نسخه و سابقهٔ پیشین را حذف نمی‌کند.</p></div>
+          </li>
+          <li class="flow-item">
+            <span class="flow-number">۰۴</span>
+            <div class="flow-card"><div><h3>محاسبهٔ کمیسیون</h3><div class="flow-meta"><span class="tag teal">قاعدهٔ تاریخ‌دار</span><span class="tag amber">استثنا با دلیل</span></div></div><p>سامانه قاعدهٔ تأییدشده را اعمال می‌کند؛ مبلغ توافقی یا تغییر دستی باید دلیل و مدارک داشته باشد.</p></div>
+          </li>
+          <li class="flow-item">
+            <span class="flow-number">۰۵</span>
+            <div class="flow-card"><div><h3>بررسی و تأیید مالی</h3><div class="flow-meta"><span class="tag amber">تفکیک ثبت‌کننده از تأییدکننده</span></div></div><p>واحد مالی مبلغ، طرف پرداخت‌کننده و مدارک را بررسی می‌کند. مورد ردشده برای اصلاح به پرونده بازمی‌گردد.</p></div>
+          </li>
+          <li class="flow-item">
+            <span class="flow-number">۰۶</span>
+            <div class="flow-card"><div><h3>صورتحساب و حساب دریافتنی</h3><div class="flow-meta"><span class="tag teal">طرف بدهکار</span><span class="tag teal">سررسید</span></div></div><p>صورتحساب به طرف یا طرف‌های پرداخت‌کننده متصل می‌شود. نحوهٔ مالیات و زمان شناسایی درآمد طبق سیاست تأییدشدهٔ حسابدار است.</p></div>
+          </li>
+          <li class="flow-item">
+            <span class="flow-number">۰۷</span>
+            <div class="flow-card"><div><h3>ثبت دریافت و تسویه</h3><div class="flow-meta"><span class="tag teal">بانک / صندوق</span><span class="tag">پرداخت جزئی</span></div></div><p>هر وصول به صورتحساب مربوط تخصیص می‌یابد؛ مانده و سررسیدهای باز در حساب مشتری باقی می‌مانند.</p></div>
+          </li>
+          <li class="flow-item">
+            <span class="flow-number">۰۸</span>
+            <div class="flow-card"><div><h3>ایجاد سند دوبل و ثبت در دفتر کل</h3><div class="flow-meta"><span class="tag violet">متوازن</span><span class="tag violet">یک‌بار ثبت</span></div></div><p>سند از رویداد تأییدشده ساخته می‌شود، به معامله و مدارک لینک دارد و امکان ثبت تکراری آن کنترل می‌شود.</p></div>
+          </li>
+          <li class="flow-item">
+            <span class="flow-number">۰۹</span>
+            <div class="flow-card"><div><h3>گزارش و بستن دوره</h3><div class="flow-meta"><span class="tag violet">مالی</span><span class="tag violet">مدیریتی</span><span class="tag violet">حسابرسی</span></div></div><p>دفاتر و گزارش‌ها از دادهٔ ثبت‌شدهٔ حسابداری استخراج می‌شوند؛ دورهٔ بسته‌شده فقط با فرایند کنترل‌شده بازگشایی می‌شود.</p></div>
+          </li>
+        </ol>
+        <div class="workflow-caption"><strong>تفکیک شاخص‌ها:</strong> ارزش آگهی ≠ مبلغ واقعی قرارداد ≠ درآمد کمیسیون دفتر ≠ وجه وصول‌شده. وضعیت «فروخته‌شده» به‌تنهایی سند درآمد ایجاد نمی‌کند.</div>
+      </div>
+
+      <div class="section-head" style="margin-top:25px">
+        <div><div class="section-kicker">مسیر موازی</div><h2 style="font-size:21px">سهم و پرداخت پورسانت مشاور</h2></div>
+      </div>
+      <div class="parallel-grid" aria-label="مراحل پورسانت مشاور">
+        <article class="parallel-step"><span class="index">گام ۱</span><h3>تعیین سهم</h3><p>سهم مشاور یا همکار طبق قاعده و قرارداد تعیین می‌شود.</p></article>
+        <article class="parallel-step"><span class="index">گام ۲</span><h3>ثبت بدهی پورسانت</h3><p>مانده، ذی‌نفع و سررسید به پروندهٔ معامله متصل می‌شود.</p></article>
+        <article class="parallel-step"><span class="index">گام ۳</span><h3>تأیید و پرداخت</h3><p>پرداخت توسط کاربر مجاز و با ثبت روش پرداخت انجام می‌شود.</p></article>
+        <article class="parallel-step"><span class="index">گام ۴</span><h3>ثبت خودکار سند</h3><p>پرداخت و ماندهٔ پورسانت در دفتر کل قابل ردیابی می‌ماند.</p></article>
+      </div>
+      <div class="exception-strip"><span class="exception-icon">!</span><strong>فسخ یا اصلاح پس از ثبت</strong><span>از مسیر صورتحساب اصلاحی یا سند برگشتی انجام می‌شود؛ سند اولیه و ردپای آن باقی می‌ماند و حذف بی‌ردپا مجاز نیست.</span></div>
+    </section>
+
+    <section class="section" id="accounting">
+      <div class="section-head">
+        <div>
+          <div class="section-kicker">مدل مالی</div>
+          <h2>ثبت دوبل از رویدادهای واقعی</h2>
+          <p class="section-intro">نمونه‌های زیر برای توضیح جریان‌اند؛ کدینگ حساب‌ها، زمان شناسایی درآمد، مالیات و نحوهٔ نمایش سهم مشاور باید توسط حسابدار تأیید شوند.</p>
+        </div>
+      </div>
+      <div class="callout"><strong>اصل تشخیص درآمد</strong><p>مبلغ کل معاملهٔ ملک در دفاتر دفتر املاک به‌عنوان درآمد ثبت نمی‌شود. درآمد دفتر، کمیسیون یا خدمت کسب‌شدهٔ خود دفتر است؛ و زمان ثبت آن تابع رویهٔ حسابداری تأییدشده خواهد بود.</p></div>
+      <div class="journal-wrap table-scroll">
+        <table>
+          <thead><tr><th>رویداد</th><th>بدهکار</th><th>بستانکار</th><th>کنترل و توضیح</th></tr></thead>
+          <tbody>
+            <tr><td><strong>شناسایی کمیسیون / صدور صورتحساب</strong></td><td>حساب دریافتنی مشتری</td><td>درآمد کمیسیون؛ مالیات پرداختنی در صورت کاربرد</td><td>رویداد شناسایی و نحوهٔ مالیات باید با حسابدار نهایی شود.</td></tr>
+            <tr><td><strong>وصول کمیسیون</strong></td><td>بانک یا صندوق</td><td>حساب دریافتنی مشتری</td><td>وصول جزئی، کامل و تخصیص به صورتحساب پشتیبانی شود.</td></tr>
+            <tr><td><strong>ثبت سهم مشاور</strong></td><td>هزینهٔ پورسانت یا طبقهٔ مصوب</td><td>پورسانت پرداختنی</td><td>ثبت ناخالص یا خالص درآمد تابع سیاست حسابداری و نوع رابطهٔ مشاور است.</td></tr>
+            <tr><td><strong>پرداخت سهم مشاور</strong></td><td>پورسانت پرداختنی</td><td>بانک یا صندوق</td><td>دستور پرداخت، تأییدکننده، تاریخ و رسید نگهداری شود.</td></tr>
+            <tr><td><strong>فسخ یا اصلاح</strong></td><td>طبق سند اصلاحی</td><td>طبق سند اصلاحی</td><td>برگشت یا اصلاح مستند؛ بدون حذف سابقهٔ سند قبلی.</td></tr>
+          </tbody>
+        </table>
+        <div class="table-note">هر سند ثبت‌شده باید متوازن، شماره‌دار، دارای منشأ عملیاتی و قابل ردیابی تا قرارداد و مدرک باشد.</div>
+      </div>
+    </section>
+
+    <section class="section" id="roles">
+      <div class="section-head">
+        <div><div class="section-kicker">حاکمیت دسترسی</div><h2>نقش‌ها و مرز مسئولیت</h2><p class="section-intro">دسترسی بر اساس کمترین سطح لازم طراحی می‌شود. ثبت‌کنندهٔ یک رویداد مالی نباید بتواند همان رویداد حساس را به‌تنهایی تأیید کند.</p></div>
+      </div>
+      <div class="roles-grid">
+        <article class="role-card"><span class="role-badge">عملیات املاک</span><h3>مشاور</h3><p>ایجاد و پیگیری معاملهٔ خود و مشاهدهٔ وضعیت کمیسیون؛ بدون ثبت یا تغییر سند مالی.</p></article>
+        <article class="role-card"><span class="role-badge">ثبت و بررسی</span><h3>کارشناس مالی</h3><p>بررسی مدارک، کمیسیون، صورتحساب و آماده‌سازی ثبت‌های مالی مجاز.</p></article>
+        <article class="role-card"><span class="role-badge">کنترل</span><h3>تأییدکنندهٔ مالی</h3><p>تأیید استثنا، تخفیف، اصلاح، ثبت با تاریخ گذشته و بازگشایی دوره طبق سطح اختیار.</p></article>
+        <article class="role-card"><span class="role-badge">خزانه‌داری</span><h3>مسئول دریافت‌وپرداخت</h3><p>ثبت وصول و پرداخت و تطبیق بانک؛ بدون اختیار تغییر مبلغ قرارداد یا قاعدهٔ کمیسیون.</p></article>
+        <article class="role-card"><span class="role-badge">حسابرسی</span><h3>حسابرس داخلی / بیرونی</h3><p>دسترسی فقط‌خواندنی به گزارش، اسناد، مدارک و ردپای تأییدها؛ بدون امکان ثبت یا اصلاح.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="audit">
+      <div class="section-head">
+        <div>
+          <div class="section-kicker">حسابرسی‌پذیری</div>
+          <h2>کنترل‌هایی که در تمام مسیر فعال‌اند</h2>
+          <p class="section-intro">سامانه باید شواهد و کنترل‌های لازم را فراهم کند؛ جایگزین قضاوت حرفه‌ای حسابدار یا حسابرس مستقل نیست.</p>
+        </div>
+      </div>
+      <div class="control-grid">
+        <article class="control-card"><span class="control-icon">۱</span><div><strong>تفکیک وظایف</strong><p>ایجاد معامله، تأیید کمیسیون، ثبت وجه و تصویب اصلاحات بین نقش‌های مجزا تقسیم شود.</p></div></article>
+        <article class="control-card"><span class="control-icon">۲</span><div><strong>ردپای کامل تغییرات</strong><p>کاربر، زمان، مقدار قبل و بعد، دلیل، تأیید و شناسهٔ پرونده ثبت شود.</p></div></article>
+        <article class="control-card"><span class="control-icon">۳</span><div><strong>مدرک و منشأ سند</strong><p>هر سند به معامله، قرارداد، صورتحساب یا رسید و تأییدهای مرتبط پیوند داشته باشد.</p></div></article>
+        <article class="control-card"><span class="control-icon">۴</span><div><strong>اصلاح بدون حذف</strong><p>سند ثبت‌شده فقط با سند برگشتی یا اصلاحی تغییر کند؛ پاک‌کردن سابقه ممنوع باشد.</p></div></article>
+        <article class="control-card"><span class="control-icon">۵</span><div><strong>مغایرت‌گیری بانکی</strong><p>ماندهٔ بانک با صورت‌حساب و دریافت‌های ثبت‌شده تطبیق داده شود؛ اختلاف باز گزارش شود.</p></div></article>
+        <article class="control-card"><span class="control-icon">۶</span><div><strong>کنترل دورهٔ مالی</strong><p>پس از بستن دوره، ثبت با تاریخ گذشته یا بازگشایی فقط با مجوز و دلیل امکان‌پذیر باشد.</p></div></article>
+        <article class="control-card"><span class="control-icon">۷</span><div><strong>هشدارهای کنترلی</strong><p>تراکنش تکراری، مدرک ناقص، کمیسیون تغییرکرده، وصول تخصیص‌نیافته یا ماندهٔ غیرعادی علامت‌گذاری شود.</p></div></article>
+        <article class="control-card"><span class="control-icon">۸</span><div><strong>دسترسی حسابرس</strong><p>حسابرس بتواند از رقم گزارش تا دفتر کل، سند، صورتحساب، معامله و مدرک حرکت کند.</p></div></article>
+      </div>
+      <div class="audit-chain" aria-label="زنجیره ردیابی حسابرسی">
+        <span>گزارش</span><span class="sep">←</span><b>دفتر کل</b><span class="sep">←</span><span>سند</span><span class="sep">←</span><span>صورتحساب / دریافت</span><span class="sep">←</span><span>پروندهٔ معامله</span><span class="sep">←</span><span>قرارداد و مدرک</span>
+      </div>
+    </section>
+
+    <section class="section" id="reports">
+      <div class="section-head">
+        <div><div class="section-kicker">دید مدیریتی</div><h2>گزارش‌های قابل اتکا برای تصمیم‌گیری</h2><p class="section-intro">شاخص‌ها باید تعریف یکسان داشته باشند و در صورت نیاز از هر عدد به جزئیات و سند منبع برسند.</p></div>
+      </div>
+      <div class="report-grid">
+        <article class="card report-card"><h3>گزارش‌های مالی</h3><ul><li>دفتر روزنامه، دفتر کل و تراز آزمایشی</li><li>صورت سود و زیان، ترازنامه و گردش وجوه نقد</li><li>مطالبات مشتریان، سررسید و ماندهٔ صورتحساب</li><li>بانک، صندوق، هزینه‌ها و پورسانت پرداختنی</li></ul></article>
+        <article class="card report-card"><h3>شاخص‌های املاک و مدیریت</h3><ul><li>حجم قراردادها در برابر کمیسیون کسب‌شده</li><li>کمیسیون محاسبه‌شده، صورتحساب‌شده و وصول‌شده</li><li>عملکرد مشاور بر پایهٔ معاملات و مبالغ مصوب</li><li>زمان وصول، مانده‌های معوق و روند فروش/اجاره</li></ul></article>
+        <article class="card report-card"><h3>گزارش‌های حسابرسی</h3><ul><li>تغییرها، برگشت‌ها و استثناهای تأییدشده</li><li>پرونده‌های فاقد قرارداد یا مدرک کافی</li><li>دریافت‌های تخصیص‌نیافته و مغایرت‌های بانکی</li><li>خروجی پروندهٔ حسابرس با مدارک و زنجیرهٔ ردیابی</li></ul></article>
+      </div>
+      <p class="report-caption">گزارش عملکرد باید «کارمزد دفتر» را از «ارزش کل ملک یا قرارداد» جدا کند؛ گزارش درآمد تحقق‌یافته نیز از پیش‌بینی معاملات در جریان تفکیک شود.</p>
+    </section>
+
+    <section class="section" id="integration">
+      <div class="section-head">
+        <div><div class="section-kicker">یکپارچگی با زمینکس</div><h2>ماژول مالی بخشی از همان سیستم است</h2><p class="section-intro">کاربران در همان محیط کار می‌کنند؛ اتصال مالی از طریق شناسهٔ پرونده و دادهٔ مشترک انجام می‌شود، نه ورود موازی اطلاعات.</p></div>
+      </div>
+      <div class="integration-grid">
+        <article class="integration-card"><span class="num">منبع موجود</span><h3>ملک و آگهی</h3><p>پیوند به رکورد ملک و آگهی؛ قیمت ثبت‌شده در CRM با مبلغ واقعی معامله اشتباه نمی‌شود.</p></article>
+        <article class="integration-card"><span class="num">رویداد جدید</span><h3>پروندهٔ معامله</h3><p>رکورد مستقل برای قرارداد، طرفین، مبلغ نهایی، کمیسیون و مدارک معامله.</p></article>
+        <article class="integration-card"><span class="num">تولید خودکار</span><h3>صورتحساب و سند</h3><p>تولید حساب دریافتنی و ثبت دوبل پس از رویداد و تأیید مجاز؛ با کنترل ثبت تکراری.</p></article>
+        <article class="integration-card"><span class="num">مصرف‌کننده</span><h3>گزارش و حسابرسی</h3><p>داشبوردها، دفاتر مالی و زنجیرهٔ شواهد از همان دادهٔ مرجع استخراج می‌شوند.</p></article>
+      </div>
+      <div class="integration-note"><strong>پیشنهاد پیکربندی:</strong> یک واحد پول پایه برای ثبت، نمایش شفاف ریال/تومان، تقویم مالی و شماره‌گذاری اسناد یکدست تعریف شود. دسترسی به اسناد هویتی و مالی نیز بر اساس نقش محدود و رویدادهای مشاهده ثبت شود.</div>
+    </section>
+
+    <section class="section" id="roadmap">
+      <div class="section-head">
+        <div><div class="section-kicker">اجرای مرحله‌ای</div><h2>نقشهٔ راه پیشنهادی</h2><p class="section-intro">مرحله‌بندی برای کاهش ریسک است؛ دامنهٔ نهایی همچنان حسابداری دوبل، کنترل، گزارش و آمادگی حسابرسی را پوشش می‌دهد.</p></div>
+      </div>
+      <div class="roadmap">
+        <article class="phase"><span class="phase-no">مرحلهٔ صفر</span><h3>تثبیت سیاست‌ها</h3><p>مرور نمونهٔ واقعی فروش و اجاره با حسابدار؛ تعیین زمان شناسایی درآمد، کمیسیون، واحد پول، دوره و مدارک.</p><span class="phase-result">خروجی: ماتریس قواعد و تصمیم‌های مصوب</span></article>
+        <article class="phase"><span class="phase-no">مرحلهٔ یک</span><h3>هستهٔ معامله و حسابداری</h3><p>پرونده و قرارداد، محاسبه و تأیید کمیسیون، صورتحساب، دریافت‌وپرداخت، دفتر کل و نقش‌های مالی.</p><span class="phase-result">خروجی: گردش مالی قابل ثبت و ردیابی</span></article>
+        <article class="phase"><span class="phase-no">مرحلهٔ دو</span><h3>گزارش و کنترل دوره</h3><p>صورت‌های مالی، مغایرت‌گیری، مطالبات، بستن دوره، گزارش مدیریت و بستهٔ مستندات حسابرس.</p><span class="phase-result">خروجی: گزارش‌های قابل اتکا و بازبینی</span></article>
+        <article class="phase"><span class="phase-no">مرحلهٔ سه</span><h3>تکالیف رسمی و خودکارسازی</h3><p>خروجی یا اتصال رسمی مالیاتی پس از تأیید الزامات؛ هشدارهای پیشرفته و تحلیل موارد غیرعادی.</p><span class="phase-result">خروجی: انطباق تأییدشده و کنترل توسعه‌یافته</span></article>
+      </div>
+    </section>
+
+    <section class="section" id="acceptance">
+      <div class="section-head">
+        <div><div class="section-kicker">معیار نتیجه</div><h2>معیارهای پذیرش کسب‌وکاری</h2><p class="section-intro">این معیارها مشخص می‌کنند که سامانه در عمل به هدف یکپارچگی و حسابرسی‌پذیری رسیده است.</p></div>
+      </div>
+      <div class="card acceptance-grid">
+        <div class="acceptance-item"><span class="check">✓</span><span>هر سند ثبت‌شده از نظر بدهکار و بستانکار متوازن است؛ سند نامتوازن قابل ثبت نهایی نیست.</span></div>
+        <div class="acceptance-item"><span class="check">✓</span><span>هر درآمد کمیسیون از پروندهٔ معامله، صورتحساب و مدرک پشتیبان قابل ردیابی است.</span></div>
+        <div class="acceptance-item"><span class="check">✓</span><span>تغییر یا فسخ، سابقهٔ قبلی را پاک نمی‌کند و از مسیر اصلاح یا برگشت مستند انجام می‌شود.</span></div>
+        <div class="acceptance-item"><span class="check">✓</span><span>یک رویداد عملیاتی در اثر تکرار درخواست، دوبار سند یا صورتحساب تولید نمی‌کند.</span></div>
+        <div class="acceptance-item"><span class="check">✓</span><span>گزارش‌های مالی با دفتر کل و تراز آزمایشی قابل تطبیق هستند.</span></div>
+        <div class="acceptance-item"><span class="check">✓</span><span>حسابرس بدون امکان تغییر، مسیر گزارش تا معامله، قرارداد و مدارک را مشاهده می‌کند.</span></div>
+        <div class="acceptance-item"><span class="check">✓</span><span>مبلغ قرارداد، درآمد کسب‌شده، صورتحساب و وجه وصول‌شده به‌عنوان شاخص‌های مستقل گزارش می‌شوند.</span></div>
+        <div class="acceptance-item"><span class="check">✓</span><span>اصلاح دورهٔ بسته‌شده، تغییر کمیسیون و پرداخت حساس نیازمند مجوز، دلیل و ردپای کامل است.</span></div>
+      </div>
+    </section>
+
+    <section class="section" id="decisions">
+      <div class="section-head">
+        <div><div class="section-kicker">موارد نیازمند تأیید</div><h2>تصمیم‌های لازم پیش از نهایی‌سازی قواعد</h2><p class="section-intro">این موارد به‌عنوان تصمیم باز ثبت می‌شوند تا الزام قانونی یا رویهٔ حسابداری بدون تأیید وارد سامانه نشود.</p></div>
+      </div>
+      <div class="decisions">
+        <article class="card decision-list">
+          <h3>تصمیم‌های مالی و عملیاتی</h3>
+          <ul>
+            <li>واحد ثبت دفتر: ریال یا تومان؛ دورهٔ مالی و قاعدهٔ بستن دوره.</li>
+            <li>زمان شناسایی درآمد کمیسیون و رویداد ایجادکنندهٔ حساب دریافتنی.</li>
+            <li>طرف یا طرف‌های پرداخت‌کننده، روش محاسبه و نرخ‌های قابل اعمال بر اساس مقررات تأییدشده.</li>
+            <li>ثبت سهم مشاور به‌صورت هزینه یا روش دیگر؛ تفاوت رابطهٔ استخدامی و همکاری قراردادی.</li>
+            <li>نوع پرداخت‌های واقعی دفتر و نیاز به گردش چک یا روش‌های بانکی خاص.</li>
+            <li>الزام صورتحساب رسمی، خروجی استاندارد یا اتصال مستقیم به سامانه‌های رسمی و زمان اجرای آن.</li>
+          </ul>
+        </article>
+        <aside class="card decision-side">
+          <h3>پیشنهاد حاکمیتی</h3>
+          <p>قواعد مالیاتی و کمیسیون باید قابل تنظیم، تاریخ‌دار و دارای سابقهٔ نسخه باشند. پیش از تأیید حسابدار، نرخ، فرمول یا تعهد قانونی در سامانه ثابت نشود.</p>
+          <p>اتصال مستقیم به سامانه‌های رسمی فقط پس از تعیین مسئولیت، روش احراز، الزامات فنی و فرایند خطا نهایی شود. تا آن زمان، خروجی قابل بررسی و ثبت دستیِ کنترل‌شده در نظر گرفته شود.</p>
+        </aside>
+      </div>
+    </section>
+
+    <div class="final-banner">
+      <strong>نتیجهٔ مورد انتظار</strong>
+      <p>یک منبع واحد برای دادهٔ معامله و ثبت مالی؛ تفکیک روشن ارزش قرارداد از درآمد دفتر؛ کنترل مجوزها و اصلاحات؛ و امکان ردیابی هر عدد از گزارش مدیریتی تا سند، قرارداد و مدرک پشتیبان.</p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <span>زمینکس | طرح مفهومی ماژول حسابداری و حسابرسی دپارتمان املاک</span>
+      <span>پیش‌نویس برای بررسی کارفرما • مهر ۱۴۰۵</span>
+      <span>جزئیات مالیاتی و رویه‌های حسابداری نیازمند تأیید متخصص ذی‌صلاح است.</span>
+    </div>
+  </footer>
+</body>
+</html>

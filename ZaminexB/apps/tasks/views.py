@@ -1,0 +1,210 @@
+from django.db.models import Prefetch, Q
+from django.utils import timezone
+
+from rest_framework import filters, permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from apps.accounts.permissions import require_permission
+from apps.accounts.scoping import team_user_ids
+from apps.common.date_filters import (
+    apply_date_field_range,
+    parse_gregorian_date,
+    validate_date_range,
+)
+from apps.common.pagination import LargeListPagination
+from apps.common.thread_locals import set_current_user
+from apps.listings.models import PropertyFile
+
+from .history import task_history_items
+from .models import Task
+from .serializers import TaskSerializer
+
+
+class TaskViewSet(viewsets.ModelViewSet):
+    serializer_class = TaskSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = LargeListPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = [
+        "title",
+        "description",
+        "assigned_to__username",
+        "assigned_to__first_name",
+        "assigned_to__last_name",
+        "created_by__username",
+        "property__title",
+        "property__internal_code",
+        "property_case__code",
+        "property_case__contact__full_name",
+        "inquiry__code",
+        "inquiry__contact__full_name",
+    ]
+    ordering_fields = ["due_date", "created_at", "updated_at", "priority", "status"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return Task.objects.none()
+
+        qs = Task.objects.select_related(
+            "assigned_to",
+            "assigned_to__consultant_profile",
+            "created_by",
+            "created_by__consultant_profile",
+            "property",
+            "property_case",
+            "property_case__contact",
+            "inquiry",
+            "inquiry__contact",
+        ).prefetch_related(
+            "assigned_to__groups", "created_by__groups",
+            Prefetch(
+                "property__property_files",
+                queryset=PropertyFile.objects.select_related("deal_type"),
+            )
+        )
+
+        ids = team_user_ids(user)
+        if ids is not None:
+            qs = qs.filter(Q(assigned_to_id__in=ids) | Q(created_by_id__in=ids))
+
+        from apps.crm import services as crm_services
+
+        qs = qs.filter(
+            (Q(property_case__isnull=True) | crm_services.case_visibility_filter(user, "property_case"))
+            & (Q(inquiry__isnull=True) | crm_services.case_visibility_filter(user, "inquiry"))
+        )
+
+        scope = self.request.query_params.get("scope")
+        if scope == "mine":
+            qs = qs.filter(assigned_to=user)
+        elif scope == "created":
+            qs = qs.filter(created_by=user)
+
+        assigned_to = self.request.query_params.get("assignedTo")
+        if assigned_to:
+            qs = qs.filter(assigned_to_id=assigned_to)
+
+        property_id = self.request.query_params.get("propertyId")
+        if property_id:
+            qs = qs.filter(property_id=property_id)
+
+        property_case_id = self.request.query_params.get("propertyCaseId")
+        if property_case_id:
+            qs = qs.filter(property_case_id=property_case_id)
+
+        inquiry_id = self.request.query_params.get("inquiryId")
+        if inquiry_id:
+            qs = qs.filter(inquiry_id=inquiry_id)
+
+        task_status = self.request.query_params.get("status")
+        if task_status:
+            qs = qs.filter(status=task_status.upper())
+
+        priority = self.request.query_params.get("priority")
+        if priority:
+            qs = qs.filter(priority=priority.upper())
+
+        task_type = self.request.query_params.get("taskType")
+        if task_type:
+            qs = qs.filter(task_type=task_type.upper())
+
+        due_from = parse_gregorian_date(
+            self.request.query_params.get("dueDateFrom"), "dueDateFrom"
+        )
+        due_to = parse_gregorian_date(
+            self.request.query_params.get("dueDateTo"), "dueDateTo"
+        )
+        validate_date_range(due_from, due_to, "dueDateFrom", "dueDateTo")
+        qs = apply_date_field_range(qs, "due_date", due_from, due_to)
+
+        return qs
+
+    def _bind_actor(self):
+        user = getattr(self.request, "user", None)
+        if user and getattr(user, "is_authenticated", False):
+            set_current_user(user)
+
+    def perform_create(self, serializer):
+        self._bind_actor()
+        user = self.request.user
+        require_permission(
+            user, "task.manage", "شما اجازه ساخت وظیفه را ندارید."
+        )
+        if not serializer.validated_data.get("created_by"):
+            serializer.save(created_by=user)
+        else:
+            serializer.save()
+
+    def perform_update(self, serializer):
+        self._bind_actor()
+        require_permission(
+            self.request.user, "task.manage", "شما اجازه ویرایش وظیفه را ندارید."
+        )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._bind_actor()
+        require_permission(
+            self.request.user, "task.manage", "شما اجازه حذف وظیفه را ندارید."
+        )
+        instance.delete()
+
+    @action(detail=True, methods=["post"])
+    def complete(self, request, pk=None):
+        self._bind_actor()
+        require_permission(
+            request.user, "task.manage", "شما اجازه تکمیل وظیفه را ندارید."
+        )
+        instance = self.get_object()
+        instance.mark_completed()
+        return Response(TaskSerializer(instance).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get"], url_path="history")
+    def history(self, request, pk=None):
+        instance = self.get_object()
+        return Response({"results": task_history_items(instance)}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get"], url_path="summary")
+    def summary(self, request):
+        queryset = self.get_queryset()
+        return Response(
+            {
+                "total": queryset.count(),
+                "pending": queryset.filter(status="PENDING").count(),
+                "in_progress": queryset.filter(status="IN_PROGRESS").count(),
+                "completed": queryset.filter(status="COMPLETED").count(),
+                "cancelled": queryset.filter(status="CANCELLED").count(),
+                "overdue": queryset.filter(
+                    due_date__lt=timezone.now().date()
+                ).exclude(status="COMPLETED").count(),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["get"], url_path="types")
+    def types(self, request):
+        from .models import Task as TaskModel
+
+        persian_labels = {
+            "VIEWING": "بازدید ملک",
+            "DOCUMENT": "بررسی مدارک",
+            "NEGOTIATION": "مذاکره و نشست",
+            "FOLLOW_UP": "پیگیری مستمر",
+            "ADMINISTRATIVE": "امور اداری و دفتری",
+            "SITE_VISIT": "کارشناسی میدانی",
+            "CONTRACT": "عقد قرارداد",
+            "INSPECTION": "بازرسی فنی",
+        }
+        
+        task_types = []
+        for choice in TaskModel.TaskType.choices:
+            value = choice[0]
+            task_types.append({
+                "value": value,
+                "label": persian_labels.get(value, choice[1]),
+            })
+        
+        return Response(task_types, status=status.HTTP_200_OK)
