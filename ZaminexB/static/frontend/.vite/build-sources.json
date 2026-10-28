@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T17:12:32.722Z",
+  "generatedAt": "2026-10-28T17:35:27.185Z",
   "entry": "src/main.tsx",
   "sources": {
     "src/app/App.tsx": "bae4092125daa2eb7c2ac7c822f629762580dc32768924852ce906897607d0f4",
@@ -50,7 +50,7 @@
     "src/features/followups/components/CreateFollowUp.tsx": "6eff4be98b9db96a17ca64963f120414381d8c3706b5c1f137035b8be8377112",
     "src/features/followups/pages/FollowUpsPage.tsx": "a6e28711776fc0a7fd95d4edcdfa9a312609a571a230492d2a86e66dd3ae56ab",
     "src/features/guide/guideContent.ts": "019d5f3d3b7206ac88b3ba4f6aef678f850ac3e58f9ad9d953e2e57b5821b3f7",
-    "src/features/guide/GuidePage.tsx": "690a23af1f1033acbf03ab1f6454bad102c5986c7d1a74d14ae438caf207782b",
+    "src/features/guide/GuidePage.tsx": "5a08c0d692b413ac8afa1b766f655ebedb6898a77dcaad9b922838a4d6b5cc6d",
     "src/features/profile/pages/MyProfilePage.tsx": "0b30320ece291d486369ad65aece80492003693c8a52dc490bdbaf27c451aa0f",
     "src/features/properties/components/AddPropertyWizard.tsx": "ef998ceead23701b6468cc4ad8890d5ac418abbc99bd70b443bf0a652354f82b",
     "src/features/properties/components/AppraisalReportTab.tsx": "504bf97c690e1e5992c0fa87b14b1e52a1d51a9506ef866731bb570c66194b5a",

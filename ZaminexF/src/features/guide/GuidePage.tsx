@@ -80,7 +80,11 @@ export default function GuidePage({ navigate }: Props) {
       ) : null}
 
       {tab === "pages" ? (
-        <div className="overflow-x-auto rounded-2xl border bg-card">
+        // `relative` makes this scroll panel the containing block of the table's screen-reader
+        // caption. The caption is absolutely positioned, so on an unpositioned panel it escaped
+        // the panel and the shell's scroll container and grew the document, which added a second
+        // scrollbar under the app on short viewports (a phone in landscape, a small window).
+        <div className="relative overflow-x-auto rounded-2xl border bg-card">
           <table className="w-full min-w-[48rem] text-sm">
             <caption className="sr-only">راهنمای صفحه‌به‌صفحه</caption>
             <thead>

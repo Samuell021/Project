@@ -86,6 +86,21 @@ describe("guide page table", () => {
     }
   });
 
+  it("keeps the hidden caption inside its own scroll panel", () => {
+    // The caption is a `.sr-only` box, i.e. absolutely positioned. The panel must therefore be its
+    // containing block: on a static panel the caption escaped the panel and the shell's scroll
+    // container, grew the document and added a second scrollbar under the app on short viewports.
+    renderGuide("admin");
+    const table = screen.getByRole("table", { name: "راهنمای صفحه‌به‌صفحه" });
+    const panel = table.parentElement as HTMLElement;
+    const classes = panel.className.split(/\s+/);
+    expect(classes).toContain("overflow-x-auto");
+    expect(classes).toContain("relative");
+    const caption = table.querySelector(".sr-only");
+    expect(caption).not.toBeNull();
+    expect(caption?.parentElement).toBe(table);
+  });
+
   it("closes the tab list with the page-by-page tab selected from the address", () => {
     renderGuide("admin");
     expect(screen.getByRole("tab", { name: "راهنمای صفحه‌به‌صفحه" }).getAttribute("aria-selected")).toBe("true");
