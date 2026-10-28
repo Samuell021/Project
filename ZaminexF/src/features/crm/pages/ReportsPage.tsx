@@ -182,7 +182,12 @@ export function Reports({ csrfToken, navigate }: { csrfToken: string; navigate: 
             ) : null}
 
             {summary.role_flags.manager && summary.team.length > 0 ? (
-              <Card className="overflow-x-auto">
+              // Each table lives in a panel that is also its containing block. A `.sr-only`
+              // caption is absolutely positioned, so without `relative` on the panel it escapes
+              // the scroll area, attaches to the document and adds a second, page-level scrollbar
+              // at the bottom of the shell (the whole app then slides out of view when that
+              // scrollbar is used).
+              <Card className="relative overflow-x-auto">
                 <h3 className="mb-3 text-sm font-bold">وضعیت تیم در بازه انتخابی</h3>
                 <table className="w-full min-w-[42rem] text-sm">
                   <caption className="sr-only">وضعیت عملکرد اعضای تیم</caption>
@@ -265,7 +270,7 @@ export function Reports({ csrfToken, navigate }: { csrfToken: string; navigate: 
               </div>
             ) : null}
             {tab === "advisors" ? (
-              <div className="overflow-x-auto">
+              <div className="relative overflow-x-auto">
                 {(report.advisors || []).length === 0 ? (
                   <EmptyState icon={<BarChart3 size={22} />} title="داده عملکردی در این بازه نیست" description="بازه را گسترده‌تر کنید یا از دسترسی مدیریتی استفاده کنید." />
                 ) : (
@@ -293,27 +298,29 @@ export function Reports({ csrfToken, navigate }: { csrfToken: string; navigate: 
               (report.stalled_listings || []).length === 0 ? (
                 <EmptyState icon={<CalendarRange size={22} />} title="فایل متوقفی نیست" description="فایل‌هایی که بیش از آستانه توقف در یک مرحله مانده‌اند اینجا دیده می‌شوند." />
               ) : (
-                <table className="w-full text-sm">
-                  <caption className="sr-only">فایل‌های متوقف</caption>
-                  <thead>
-                    <tr className="border-b text-xs text-muted-foreground">
-                      <th scope="col" className="py-2 text-right">عنوان</th>
-                      <th scope="col" className="py-2 text-right">نوع معامله</th>
-                      <th scope="col" className="py-2 text-right">روز در مرحله</th>
-                      <th scope="col" className="py-2 text-right">اقدام</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.stalled_listings.map((row: Row) => (
-                      <tr key={row.id} className="border-b last:border-0">
-                        <td className="py-2">{row.title}</td>
-                        <td className="py-2">{row.deal_type}</td>
-                        <td className="py-2 text-amber-700 dark:text-amber-300">{numberOrUnknown(String(row.days_in_stage))}</td>
-                        <td className="py-2"><button type="button" className="text-emerald-700 hover:underline dark:text-emerald-300" onClick={() => navigate("property-file-detail", row.id)}>مشاهده فایل</button></td>
+                <div className="relative overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <caption className="sr-only">فایل‌های متوقف</caption>
+                    <thead>
+                      <tr className="border-b text-xs text-muted-foreground">
+                        <th scope="col" className="py-2 text-right">عنوان</th>
+                        <th scope="col" className="py-2 text-right">نوع معامله</th>
+                        <th scope="col" className="py-2 text-right">روز در مرحله</th>
+                        <th scope="col" className="py-2 text-right">اقدام</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {report.stalled_listings.map((row: Row) => (
+                        <tr key={row.id} className="border-b last:border-0">
+                          <td className="py-2">{row.title}</td>
+                          <td className="py-2">{row.deal_type}</td>
+                          <td className="py-2 text-amber-700 dark:text-amber-300">{numberOrUnknown(String(row.days_in_stage))}</td>
+                          <td className="py-2"><button type="button" className="text-emerald-700 hover:underline dark:text-emerald-300" onClick={() => navigate("property-file-detail", row.id)}>مشاهده فایل</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )
             ) : null}
             {tab === "deals" ? (
@@ -326,7 +333,7 @@ export function Reports({ csrfToken, navigate }: { csrfToken: string; navigate: 
                 {report.deals?.value_mixed ? (
                   <p className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300"><AlertTriangle size={14} /> ارزش معاملات چند نوع مختلف است و جمع کل نمایش داده نمی‌شود؛ هر ردیف جدا ارزیابی شود.</p>
                 ) : null}
-                <div className="overflow-x-auto">
+                <div className="relative overflow-x-auto">
                   <table className="w-full min-w-[34rem] text-sm">
                     <caption className="sr-only">ارزش معامله به تفکیک نوع</caption>
                     <thead>

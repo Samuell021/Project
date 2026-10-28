@@ -283,7 +283,12 @@ export function Pipelines({ csrfToken, navigate, role }: { csrfToken: string; na
               {column.cards.length === 0 ? (
                 <p className="rounded-xl border border-dashed p-3 text-center text-xs text-muted-foreground">رکوردی در این مرحله نیست</p>
               ) : (
-                <ul className="-mx-1 min-h-0 flex-1 space-y-2 overflow-y-auto px-1 pb-1">
+                <ul
+                  // `relative` makes this list the containing block of the card's screen-reader
+                  // stage label: an absolutely positioned label inside a plain scroll box escapes
+                  // it and adds a page-level scrollbar under the shell.
+                  className="relative -mx-1 min-h-0 flex-1 space-y-2 overflow-y-auto px-1 pb-1"
+                >
                   {column.cards.map((card) => {
                     const transitions = availableTransitions(card);
                     return (
