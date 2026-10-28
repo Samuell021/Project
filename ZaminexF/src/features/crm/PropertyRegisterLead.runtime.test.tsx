@@ -61,9 +61,12 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
-function stubApi(dealTypes: unknown[] = DEAL_TYPES) {
+function stubApi(dealTypes: unknown[] = DEAL_TYPES, scopes: unknown[] = []) {
   return vi.fn(async (input: unknown) => {
     const url = String(input);
+    if (url.includes("/crm/api/scopes/")) {
+      return jsonResponse({ count: scopes.length, next: null, previous: null, results: scopes });
+    }
     if (url.includes("/crm/api/deal-types/")) {
       return jsonResponse({ count: dealTypes.length, next: null, previous: null, results: dealTypes });
     }
@@ -191,4 +194,115 @@ describe("property registration lead step", () => {
     fireEvent.change(screen.getByLabelText("جستجو در اشخاص"), { target: { value: "متقاضی" } });
     expect(list()).toHaveLength(1);
   }, 20000);
+  it("sends the consultant's own range so the lead lands where the manager waits for it", async () => {
+    const posted: Array<Record<string, unknown>> = [];
+    const baseFetch = stubApi(DEAL_TYPES, [{ id: 5, name: "رنج شمال", is_active: true }]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: unknown, init?: RequestInit) => {
+        if (String(input).includes("/crm/api/property-cases/") && String(init?.method || "GET").toUpperCase() === "POST") {
+          posted.push(JSON.parse(String(init?.body || "{}")));
+          return jsonResponse({ id: 90, code: "PR-90", stage: "reception", version: 1 }, 201);
+        }
+        return baseFetch(input);
+      }),
+    );
+    render(<PropertyRegisterPage csrfToken="token" role="consultant" currentUserId="9" navigate={() => undefined} />);
+
+    // The single range is shown before anything is typed, instead of being decided silently.
+    expect(await screen.findByText("رنج شمال", {}, { timeout: 8000 })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "ثبت شخص جدید" }));
+    fireEvent.change(screen.getByLabelText("نام کامل مالک / معرف (الزامی)"), { target: { value: "مالک آزمون" } });
+    fireEvent.change(screen.getByLabelText("شماره تماس (الزامی)"), { target: { value: "09121112233" } });
+    fireEvent.change(screen.getByLabelText("خلاصهٔ اولیهٔ ملک و توضیحات سرنخ (الزامی)"), {
+      target: { value: "آپارتمان آزمون" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "ثبت سرنخ و ایجاد پرونده" }));
+
+    await waitFor(() => expect(posted).toHaveLength(1), { timeout: 8000 });
+    expect(posted[0].sales_range).toBe(5);
+  }, 30000);
+
+  it("warns a consultant without an active range instead of losing the filled form", async () => {
+    const fetchMock = stubApi(DEAL_TYPES, []);
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PropertyRegisterPage csrfToken="token" role="consultant" currentUserId="9" navigate={() => undefined} />);
+
+    expect(await screen.findByText("حساب شما به هیچ رنج فعالی متصل نیست.", {}, { timeout: 8000 })).toBeTruthy();
+    const submit = screen.getByRole("button", { name: "ثبت سرنخ و ایجاد پرونده" }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+
+    fireEvent.click(submit);
+    const posts = fetchMock.mock.calls.filter(
+      ([, init]) => String((init as RequestInit | undefined)?.method || "GET").toUpperCase() === "POST",
+    );
+    expect(posts).toHaveLength(0);
+  }, 30000);
+
+  it("keeps the range out of the payload for a general manager", async () => {
+    // A general manager opens cases without a range; the panel must not force one on them.
+    const posted: Array<Record<string, unknown>> = [];
+    const baseFetch = stubApi(DEAL_TYPES, [{ id: 5, name: "رنج شمال", is_active: true }]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: unknown, init?: RequestInit) => {
+        if (String(input).includes("/crm/api/property-cases/") && String(init?.method || "GET").toUpperCase() === "POST") {
+          posted.push(JSON.parse(String(init?.body || "{}")));
+          return jsonResponse({ id: 92, code: "PR-92", stage: "reception", version: 1 }, 201);
+        }
+        return baseFetch(input);
+      }),
+    );
+    render(<PropertyRegisterPage csrfToken="token" role="admin" currentUserId="1" navigate={() => undefined} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "ثبت شخص جدید" }, { timeout: 8000 }));
+    fireEvent.change(screen.getByLabelText("نام کامل مالک / معرف (الزامی)"), { target: { value: "مالک آزمون" } });
+    fireEvent.change(screen.getByLabelText("شماره تماس (الزامی)"), { target: { value: "09121112233" } });
+    fireEvent.change(screen.getByLabelText("خلاصهٔ اولیهٔ ملک و توضیحات سرنخ (الزامی)"), {
+      target: { value: "آپارتمان آزمون" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "ثبت سرنخ و ایجاد پرونده" }));
+
+    await waitFor(() => expect(posted).toHaveLength(1), { timeout: 8000 });
+    expect(posted[0].sales_range).toBeUndefined();
+  }, 30000);
+
+  it("treats a deactivated range as no range and lets the consultant choose between several", async () => {
+    // A deactivated range must not be offered: the server refuses cases in it.
+    vi.stubGlobal("fetch", stubApi(DEAL_TYPES, [{ id: 5, name: "رنج قدیمی", is_active: false }]));
+    render(<PropertyRegisterPage csrfToken="token" role="consultant" currentUserId="9" navigate={() => undefined} />);
+    expect(await screen.findByText("حساب شما به هیچ رنج فعالی متصل نیست.", {}, { timeout: 8000 })).toBeTruthy();
+    cleanup();
+
+    const posted: Array<Record<string, unknown>> = [];
+    const baseFetch = stubApi(DEAL_TYPES, [
+      { id: 5, name: "رنج شمال", is_active: true },
+      { id: 6, name: "رنج جنوب", is_active: true },
+    ]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: unknown, init?: RequestInit) => {
+        if (String(input).includes("/crm/api/property-cases/") && String(init?.method || "GET").toUpperCase() === "POST") {
+          posted.push(JSON.parse(String(init?.body || "{}")));
+          return jsonResponse({ id: 91, code: "PR-91", stage: "reception", version: 1 }, 201);
+        }
+        return baseFetch(input);
+      }),
+    );
+    render(<PropertyRegisterPage csrfToken="token" role="consultant" currentUserId="9" navigate={() => undefined} />);
+
+    const rangeSelect = (await screen.findByLabelText("رنج پرونده (الزامی)", {}, { timeout: 8000 })) as HTMLSelectElement;
+    expect(Array.from(rangeSelect.options).map((option) => option.textContent)).toEqual(["رنج شمال", "رنج جنوب"]);
+    fireEvent.change(rangeSelect, { target: { value: "6" } });
+    fireEvent.click(screen.getByRole("button", { name: "ثبت شخص جدید" }));
+    fireEvent.change(screen.getByLabelText("نام کامل مالک / معرف (الزامی)"), { target: { value: "مالک آزمون" } });
+    fireEvent.change(screen.getByLabelText("شماره تماس (الزامی)"), { target: { value: "09121112233" } });
+    fireEvent.change(screen.getByLabelText("خلاصهٔ اولیهٔ ملک و توضیحات سرنخ (الزامی)"), {
+      target: { value: "آپارتمان آزمون" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "ثبت سرنخ و ایجاد پرونده" }));
+
+    await waitFor(() => expect(posted).toHaveLength(1), { timeout: 8000 });
+    expect(posted[0].sales_range).toBe(6);
+  }, 30000);
 });

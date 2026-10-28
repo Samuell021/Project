@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T15:48:13.238Z",
+  "generatedAt": "2026-10-28T16:34:23.681Z",
   "entry": "src/main.tsx",
   "sources": {
     "src/app/App.tsx": "bae4092125daa2eb7c2ac7c822f629762580dc32768924852ce906897607d0f4",
@@ -39,7 +39,7 @@
     "src/features/crm/pages/IntroductionsPage.tsx": "608383b380d2f162fd23827c0df33fcc2ba99eae41503e017c341d5ed687d93b",
     "src/features/crm/pages/PipelinesPage.tsx": "1501013922c5afd57a7d97f7f11cd7a7b2b8bad88db1baed49deea19e9865939",
     "src/features/crm/pages/PropertyCasesPage.tsx": "823f08c391997187a3b99c0107abbdbf8881315dde563472ceceae9f951b9535",
-    "src/features/crm/pages/PropertyRegisterPage.tsx": "3a8ed246ac69cf1a505c4c9ff118e1a5a0fbaef0b9f2f707eac6945b709c7d40",
+    "src/features/crm/pages/PropertyRegisterPage.tsx": "a29e2f086faa9dabb030d8f07ac327163664e460b37c616087e15ea19f5fc3ce",
     "src/features/crm/pages/ReportsPage.tsx": "d3c6b93f19fcef8e27a2cb0ad517e193842ee4a7453f072093e27d65546da9fe",
     "src/features/crm/pages/ReviewsQueuePage.tsx": "782964b699c35bdeb692f36899db631ee812995e436b1bcb976a059740a80329",
     "src/features/crm/pages/ViewingsPage.tsx": "e1fc13e5777da6f472139f157846176e1777144363e5164a41ecc6daf903e45e",

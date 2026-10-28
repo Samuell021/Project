@@ -64,3 +64,47 @@ def compatibility_membership_change(sender, instance, action, reverse, pk_set, *
                     ScopeMembership.objects.create(**lookup, started_at=now)
             else:
                 current.update(ended_at=now)
+
+
+def reconcile_sales_range_memberships(sales_range, at=None):
+    """Restore the history rows that a range's own member lists already imply.
+
+    The settings screen edits ``SalesRange.managers``/``members`` and the signals above mirror every
+    change into ``ScopeMembership``. Data that arrived through another door — a restored dump, a
+    raw SQL update, a write straight into the through table — can leave a range listing a user whose
+    history row is missing. Every workflow read trusts the history, so that user silently looks
+    unassigned ("برای شما رنج فعالی ثبت نشده است"). Rebuilding the missing rows keeps the two
+    sources of truth aligned instead of adding a third rule that has to be kept in sync by hand.
+    """
+    if sales_range is None or not sales_range.is_active:
+        return []
+    now = at or timezone.now()
+    restored = []
+    for role, relation in (
+        (ScopeMembership.MembershipRole.MANAGER, sales_range.managers),
+        (ScopeMembership.MembershipRole.MEMBER, sales_range.members),
+    ):
+        for user_id in relation.values_list("pk", flat=True):
+            already_active = active_memberships(now).filter(
+                sales_range_id=sales_range.pk, user_id=user_id, membership_role=role
+            ).exists()
+            if already_active:
+                continue
+            ScopeMembership.objects.create(
+                sales_range=sales_range, user_id=user_id, membership_role=role, started_at=now
+            )
+            restored.append((user_id, role))
+    return restored
+
+
+def reconcile_user_memberships(user, at=None):
+    """First active range that already lists this user, with its missing history rows restored."""
+    now = at or timezone.now()
+    ranges = list(
+        SalesRange.objects.filter(is_active=True)
+        .filter(Q(managers=user) | Q(members=user))
+        .order_by("name", "pk")
+    )
+    for sales_range in ranges:
+        reconcile_sales_range_memberships(sales_range, at=now)
+    return ranges[0] if ranges else None

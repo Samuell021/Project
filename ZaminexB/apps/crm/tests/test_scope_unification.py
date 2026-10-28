@@ -105,6 +105,19 @@ class ScopeApiTests(TestCase):
         self.assertEqual(self.client.patch(f"/crm/api/scopes/{self.sales_range.pk}/", {"name": "نام تازه"}, format="json").status_code, 405)
         self.assertEqual(self.client.post("/crm/api/scopes/", {"name": "رنج تازه"}, format="json").status_code, 405)
 
+    def test_listing_scopes_repairs_a_range_whose_history_row_was_lost(self):
+        # A restored dump or a raw import can leave the range listing the user without the history
+        # row that every read trusts; the panel reads this list, so it must not call them unassigned.
+        self.sales_range.members.through.objects.create(salesrange_id=self.sales_range.pk, user_id=self.member.pk)
+        self.assertFalse(ScopeMembership.objects.filter(user=self.member).exists())
+
+        self.client.force_authenticate(self.member)
+        response = self.client.get("/crm/api/scopes/")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual([row["name"] for row in response.data["results"]], ["رنج نسخه‌دار"])
+        self.assertTrue(active_memberships().filter(user=self.member, sales_range=self.sales_range).exists())
+
     def test_settings_range_membership_feeds_the_crm_projection(self):
         self.client.patch(f"/accounts/ranges/{self.sales_range.pk}/", {"member_ids": [self.member.pk]}, format="json")
         self.assertTrue(self.sales_range.members.filter(pk=self.member.pk).exists())
