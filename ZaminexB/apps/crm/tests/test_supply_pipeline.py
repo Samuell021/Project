@@ -165,6 +165,63 @@ class SupplyPipelineTests(TestCase):
         self.assertEqual(mgr_created.data["stage"], "assignment")
         self.assertFalse(Task.objects.filter(title__contains=mgr_created.data["code"]).exists())
 
+    def test_lead_creation_without_any_range_names_the_fix(self):
+        """A consultant with no range cannot own a case; the message must say what to change."""
+        unassigned = User.objects.create_user(username="sup-free", password="pw", role="AGENT")
+        unassigned.groups.add(Group.objects.get(name="AGENT"))
+        self.auth(unassigned)
+
+        res = self.client.post(
+            "/crm/api/property-cases/",
+            {
+                "contact_full_name": "مالک بدون رنج",
+                "contact_phone": "09127778899",
+                "description": "سرنخ بدون رنج",
+            },
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 400, res.content)
+        self.assertIn("sales_range", res.data)
+        message = res.data["sales_range"][0]
+        self.assertIn("به هیچ رنجی متصل نیست", message)
+        self.assertIn("تنظیمات ← رنج‌ها", message)
+        self.assertFalse(models.PropertyRegistrationRequest.objects.filter(contact__full_name="مالک بدون رنج").exists())
+
+    def test_lead_creation_with_a_deactivated_range_is_explained(self):
+        self.range1.is_active = False
+        self.range1.save(update_fields=["is_active"])
+
+        self.auth(self.adv1)
+        res = self.client.post(
+            "/crm/api/property-cases/",
+            {"contact_full_name": "مالک رنج غیرفعال", "contact_phone": "09123334400", "description": "سرنخ"},
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 400, res.content)
+        self.assertIn("رنج غیرفعال شده", res.data["sales_range"][0])
+
+    def test_a_range_that_lists_the_consultant_without_history_is_repaired(self):
+        """A restored dump can hold the member row without ScopeMembership; the case must still work."""
+        now = timezone.now()
+        ScopeMembership.objects.filter(sales_range=self.range1, user=self.adv1).delete()
+        # Writing straight into the through table bypasses the m2m signals on purpose.
+        self.range1.members.through.objects.create(salesrange_id=self.range1.pk, user_id=self.adv1.pk)
+        self.assertFalse(ScopeMembership.objects.filter(sales_range=self.range1, user=self.adv1).exists())
+
+        self.auth(self.adv1)
+        res = self.client.post(
+            "/crm/api/property-cases/",
+            {"contact_full_name": "مالک رنج بازیابی‌شده", "contact_phone": "09125556600", "description": "سرنخ"},
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 201, res.content)
+        self.assertEqual(res.data["scope_name"], self.range1.name)
+        membership = ScopeMembership.objects.get(sales_range=self.range1, user=self.adv1, ended_at=None)
+        self.assertLessEqual(membership.started_at, now + timedelta(minutes=1))
+
     def test_every_lead_source_choice_is_accepted_on_creation(self):
         """The wizard's «منبع سرنخ» list must never offer a code this API answers 400 for.
 

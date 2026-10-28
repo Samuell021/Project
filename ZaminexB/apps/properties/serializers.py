@@ -469,11 +469,47 @@ class PropertySerializer(AttributeValuesMixin, serializers.ModelSerializer):
             data["type"] = str(data["type"]).upper()
         return super().to_internal_value(data)
 
+    def _unify_feature_values(self, instance, payload, legacy_fields):
+        """Keep the dynamic features and their legacy mirror columns equal.
+
+        ``rooms``/``floor``/``built_year`` are stored twice: as type-specific
+        attributes (the current contract) and in the legacy ``Property`` columns
+        that ``beds`` and the matching/search code still read. The attribute
+        payload wins; a value that arrives through a legacy field is written back
+        to the attribute so neither home can drift from the other.
+        """
+        from .features import (
+            LEGACY_FEATURE_FIELDS,
+            linked_feature_names,
+            mirror_feature_columns,
+            store_feature_value,
+        )
+
+        payload = payload or {}
+        dynamic_names = {name for name in LEGACY_FEATURE_FIELDS if name in payload}
+        legacy_names = {
+            name
+            for name, field in LEGACY_FEATURE_FIELDS.items()
+            if field in legacy_fields and name not in dynamic_names
+        }
+
+        if legacy_names:
+            linked = linked_feature_names(instance.property_type_ref)
+            for name in legacy_names & linked:
+                store_feature_value(
+                    instance, name, getattr(instance, LEGACY_FEATURE_FIELDS[name])
+                )
+
+        if dynamic_names:
+            mirror_feature_columns(instance, dynamic_names)
+
     @transaction.atomic
     def create(self, validated_data):
         payload = self._pop_attribute_payload()
+        legacy_fields = set(validated_data)
         instance = super().create(validated_data)
         self._save_attribute_values(instance, payload or {})
+        self._unify_feature_values(instance, payload, legacy_fields)
         if instance.status != Property.Status.DRAFT:
             self._validate_required_attributes(
                 instance, instance.property_type_ref, "attribute_links"
@@ -483,9 +519,11 @@ class PropertySerializer(AttributeValuesMixin, serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         payload = self._pop_attribute_payload()
+        legacy_fields = set(validated_data)
         instance = super().update(instance, validated_data)
         if payload is not None:
             self._save_attribute_values(instance, payload)
+        self._unify_feature_values(instance, payload, legacy_fields)
         if instance.status != Property.Status.DRAFT:
             self._validate_required_attributes(
                 instance, instance.property_type_ref, "attribute_links"

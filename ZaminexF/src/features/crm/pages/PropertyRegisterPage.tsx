@@ -20,9 +20,11 @@ import { LocationSelect, findLocationPath, useLocationTree } from "../../../shar
 import { ContactCombobox, type ContactComboboxRow } from "../../../shared/components/ui/ContactCombobox";
 import { ConsultantCombobox } from "../../../shared/components/ui/ConsultantCombobox";
 import { DynamicAttributeFields } from "../../../shared/components/ui/DynamicAttributeFields";
+import { Input } from "../../../shared/components/ui/Input";
 import { JalaliDateTimeInput } from "../../../shared/components/ui/JalaliDateTimeInput";
 import { PropertyMapPicker } from "../../../shared/components/ui/PropertyMapPicker";
 import { apiErrorMessage, apiFetch, readJson } from "../../../shared/lib/apiClient";
+import { normalizePriceDigits } from "../../../shared/lib/utils";
 import { useAttributeSchema, useBasicsCatalog } from "../../../shared/lib/useAttributeSchema";
 import type { Role } from "../../../shared/lib/types";
 import { AccessibleModal } from "../components/AccessibleModal";
@@ -50,6 +52,7 @@ import {
   wizardStepIndex,
   writeSupplyDraft,
   type DealTermsSchema,
+  type DealTermField,
   type DealTypeCatalogItem,
   type DealTypeChangePreview,
   type PropertyCaseRecord,
@@ -57,6 +60,15 @@ import {
   type WizardStepKey,
 } from "../lib/supplyDomain";
 import type { CrmPageProps, Row } from "../types";
+
+/**
+ * Deal-term amounts (schema unit «تومان») are the only fields that get the live 3-digit grouping
+ * and the Persian-words line under the input, exactly like the prices in the property-file wizard.
+ * Percentages and other numeric terms keep the plain number input.
+ */
+const isMoneyTermField = (field: DealTermField): boolean =>
+  (field.type === "integer" || field.type === "decimal") &&
+  Boolean(field.unit && field.unit.includes("تومان"));
 
 type AppraisalDraftState = {
   contactMode: "new" | "existing";
@@ -66,6 +78,7 @@ type AppraisalDraftState = {
   leadSource: string;
   leadSummary: string;
   desiredDealTypes: number[];
+  salesRangeId: string;
   propertyTitle: string;
   districtId: string;
   provinceId: string;
@@ -94,6 +107,7 @@ const EMPTY_DRAFT: AppraisalDraftState = {
   leadSource: DEFAULT_LEAD_SOURCE,
   leadSummary: "",
   desiredDealTypes: [],
+  salesRangeId: "",
   propertyTitle: "",
   districtId: "",
   provinceId: "",
@@ -294,6 +308,9 @@ export function PropertyRegisterPage({
     "/crm/api/property-cases/",
     "/crm/api/contacts/",
     "/crm/api/deal-types/",
+    // The ranges this user may work in, so a consultant without an assignment is told before
+    // filling the whole lead form instead of losing it to a 400 at the last click.
+    "/crm/api/scopes/",
     ...(caseDetailUrl ? [caseDetailUrl] : []),
     // Only a range manager (or a general manager) may read the candidate list, and only they see
     // the assignment form, so the request is scoped to them to keep the page error-free otherwise.
@@ -306,6 +323,9 @@ export function PropertyRegisterPage({
   const contacts = (data["/crm/api/contacts/"] || []) as Row[];
   const dealTypes = ((data["/crm/api/deal-types/"] || []) as DealTypeCatalogItem[]).filter(
     (dt) => dt.is_active && dt.published_version,
+  );
+  const activeScopes = ((data["/crm/api/scopes/"] || []) as Array<{ id: number; name: string; is_active?: boolean }>).filter(
+    (scope) => scope.is_active !== false,
   );
   const assignableStaff = buildAssignableStaffOptions(
     (assignableStaffUrl ? data[assignableStaffUrl] : []) as AssignableStaffRow[] | undefined,
@@ -332,6 +352,15 @@ export function PropertyRegisterPage({
   const isViewingPast = currentIndex < serverIndex;
   const isViewingFuture = currentIndex > serverIndex;
   const guidance = stageGuidanceForRole(activeCase, typedRole, currentUserId);
+  // A general manager may open a range-less case; for everybody else the server routes the case
+  // through the range they belong to, so the panel resolves that range here and sends it along.
+  const rangeRequired = typedRole !== "admin";
+  const activeScopeIds = activeScopes.map((scope) => String(scope.id));
+  const selectedScopeId = activeScopeIds.includes(draft.salesRangeId)
+    ? draft.salesRangeId
+    : activeScopeIds[0] ?? "";
+  const selectedScope = activeScopes.find((scope) => String(scope.id) === selectedScopeId) ?? null;
+  const hasNoActiveScope = rangeRequired && !loading && activeScopes.length === 0;
 
   useEffect(() => {
     setViewedStepOverride(null);
@@ -346,6 +375,7 @@ export function PropertyRegisterPage({
         ...EMPTY_DRAFT,
         ...saved.fields,
         leadSource: normalizeLeadSource((saved.fields as Partial<AppraisalDraftState>).leadSource),
+        salesRangeId: String((saved.fields as Partial<AppraisalDraftState>).salesRangeId ?? ""),
         ...findLocationPath(locationTree, (saved.fields as Partial<AppraisalDraftState>).districtId),
       });
       setRestoredDraftAt(saved.savedAt);
@@ -535,6 +565,12 @@ export function PropertyRegisterPage({
       setFieldErrors(errs);
       return;
     }
+    if (rangeRequired && !selectedScope) {
+      setFormError(
+        "حساب شما به هیچ رنج فعالی متصل نیست؛ برای ثبت پرونده باید مدیر شما را از مسیر «تنظیمات ← رنج‌ها» به یک رنج فعال اضافه کند.",
+      );
+      return;
+    }
 
     setBusy(true);
     try {
@@ -543,6 +579,9 @@ export function PropertyRegisterPage({
         description: draft.leadSummary.trim(),
         desired_deal_type_ids: draft.desiredDealTypes,
       };
+      // Send the range explicitly: the server would otherwise guess the alphabetically first one
+      // when the consultant belongs to several ranges.
+      if (rangeRequired && selectedScope) payload.sales_range = selectedScope.id;
       if (draft.contactMode === "existing") {
         payload.contact = Number(draft.existingContactId);
       } else {
@@ -699,16 +738,35 @@ export function PropertyRegisterPage({
       setFormError("انتخاب نوع معامله الزامی است.");
       return;
     }
+    // Money terms are edited as digit strings so the field can group thousands while typing, the
+    // same way the property-file wizard holds its prices; they go back to integers only here.
+    const cleanTerms: Record<string, string | number | boolean> = {};
+    for (const [key, value] of Object.entries(listingTerms)) {
+      const field = (currentSchema?.fields || []).find((item) => item.key === key);
+      if (!field || !isMoneyTermField(field)) {
+        cleanTerms[key] = value;
+        continue;
+      }
+      const digits = normalizePriceDigits(value as string | number | null);
+      cleanTerms[key] = digits ? Number(digits) : "";
+    }
+    const missingRequired = (currentSchema?.fields || []).find(
+      (field) => field.required && isMoneyTermField(field) && !cleanTerms[field.key],
+    );
+    if (missingRequired) {
+      setFormError(`وارد کردن ${missingRequired.label} الزامی است.`);
+      return;
+    }
     setBusy(true);
     setFormError("");
     setFeedback("");
     try {
       await post(csrfToken, `/crm/api/properties/${propId}/listings/`, {
         deal_type: Number(selectedDealTypeId),
-        terms: listingTerms,
-        sale_price: listingTerms.sale_price ?? null,
-        deposit: listingTerms.deposit ?? null,
-        monthly_rent: listingTerms.monthly_rent ?? null,
+        terms: cleanTerms,
+        sale_price: cleanTerms.sale_price ?? null,
+        deposit: cleanTerms.deposit ?? null,
+        monthly_rent: cleanTerms.monthly_rent ?? null,
         description: listingDescription.trim(),
         status: listingStatus,
       });
@@ -922,6 +980,34 @@ export function PropertyRegisterPage({
         <Card>
           <form onSubmit={handleCreateLead} className="space-y-4">
             <h3 className="text-base font-bold text-foreground">مرحلهٔ ۱: ثبت سرنخ و شخص مرتبط</h3>
+            {!rangeRequired ? null : hasNoActiveScope ? (
+              <div role="alert" className="space-y-1 rounded-xl border border-amber-500/45 bg-amber-500/10 p-3.5 text-xs leading-relaxed">
+                <strong className="block text-foreground">حساب شما به هیچ رنج فعالی متصل نیست.</strong>
+                <p className="text-muted-foreground">
+                  برای ثبت پرونده، مدیر باید شما را از مسیر «تنظیمات ← رنج‌ها» به یک رنج فعال اضافه کند؛ تا آن زمان این
+                  فرم ثبت نمی‌شود و اطلاعات واردشده از دست نمی‌رود.
+                </p>
+              </div>
+            ) : selectedScope && activeScopes.length === 1 ? (
+              <p className="rounded-xl bg-secondary px-3.5 py-2.5 text-xs text-muted-foreground">
+                پرونده در رنج <strong className="text-foreground">{selectedScope.name}</strong> ثبت می‌شود و برای پذیرش به
+                مدیر همان رنج می‌رود.
+              </p>
+            ) : activeScopes.length > 1 ? (
+              <Field label="رنج پرونده (الزامی)">
+                <select
+                  value={selectedScopeId}
+                  onChange={(e) => updateDraft("salesRangeId", e.target.value)}
+                  className={inputCls}
+                >
+                  {activeScopes.map((scope) => (
+                    <option key={scope.id} value={String(scope.id)}>
+                      {scope.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -1036,7 +1122,7 @@ export function PropertyRegisterPage({
             </Field>
 
             <div className="flex justify-end">
-              <Btn type="submit" disabled={busy}>
+              <Btn type="submit" disabled={busy || hasNoActiveScope}>
                 ثبت سرنخ و ایجاد پرونده
               </Btn>
             </div>
@@ -1758,40 +1844,60 @@ export function PropertyRegisterPage({
 
               {currentSchema?.fields?.length ? (
                 <div className="grid gap-3 rounded-xl border p-3.5 sm:grid-cols-2">
-                  {currentSchema.fields.map((field) => (
-                    <Field
-                      key={field.key}
-                      label={`${field.label}${field.unit ? ` (${field.unit})` : ""}${field.required ? " *" : ""}`}
-                    >
-                      {field.type === "boolean" ? (
-                        <input
-                          type="checkbox"
-                          checked={Boolean(listingTerms[field.key])}
-                          onChange={(e) =>
-                            setListingTerms((prev) => ({ ...prev, [field.key]: e.target.checked }))
-                          }
-                        />
-                      ) : (
-                        <input
-                          type={field.type === "integer" || field.type === "decimal" ? "number" : field.type === "date" ? "date" : "text"}
-                          value={String(listingTerms[field.key] ?? "")}
-                          onChange={(e) =>
-                            setListingTerms((prev) => ({
-                              ...prev,
-                              [field.key]:
-                                field.type === "integer" || field.type === "decimal"
-                                  ? e.target.value === ""
-                                    ? ""
-                                    : Number(e.target.value)
-                                  : e.target.value,
-                            }))
-                          }
-                          required={field.required}
-                          className={inputCls}
-                        />
-                      )}
-                    </Field>
-                  ))}
+                  {currentSchema.fields.map((field) => {
+                    const fieldLabel = `${field.label}${field.unit ? ` (${field.unit})` : ""}`;
+                    const label = `${fieldLabel}${field.required ? " *" : ""}`;
+                    // Amounts get the same price input as the property-file wizard: grouping while typing plus the
+                    // Persian-words line under the field. Everything else keeps the plain control.
+                    if (isMoneyTermField(field)) {
+                      return (
+                        <div key={field.key} className="block text-sm">
+                          <span className="mb-1 block text-muted-foreground">{label}</span>
+                          <Input
+                            isPrice
+                            className={inputCls}
+                            ariaLabel={fieldLabel}
+                            placeholder="مبلغ به تومان"
+                            value={String(listingTerms[field.key] ?? "")}
+                            onChange={(value) =>
+                              setListingTerms((prev) => ({ ...prev, [field.key]: value }))
+                            }
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <Field key={field.key} label={label}>
+                        {field.type === "boolean" ? (
+                          <input
+                            type="checkbox"
+                            checked={Boolean(listingTerms[field.key])}
+                            onChange={(e) =>
+                              setListingTerms((prev) => ({ ...prev, [field.key]: e.target.checked }))
+                            }
+                          />
+                        ) : (
+                          <input
+                            type={field.type === "integer" || field.type === "decimal" ? "number" : field.type === "date" ? "date" : "text"}
+                            value={String(listingTerms[field.key] ?? "")}
+                            onChange={(e) =>
+                              setListingTerms((prev) => ({
+                                ...prev,
+                                [field.key]:
+                                  field.type === "integer" || field.type === "decimal"
+                                    ? e.target.value === ""
+                                      ? ""
+                                      : Number(e.target.value)
+                                    : e.target.value,
+                              }))
+                            }
+                            required={field.required}
+                            className={inputCls}
+                          />
+                        )}
+                      </Field>
+                    );
+                  })}
                 </div>
               ) : null}
 

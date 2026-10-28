@@ -59,7 +59,7 @@ function AddPropertyWizard({
   csrfToken?: string;
 }) {
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ title: "", internalCode: "", propertyTypeRef: "", beds: "", area: "", floor: "", constructionYear: "", provinceId: "", cityId: "", districtId: "", latitude: "", longitude: "", fullAddress: "", description: "", consultant: "", ownerFirstName: "", ownerLastName: "", ownerPhone: "" });
+  const [form, setForm] = useState({ title: "", internalCode: "", propertyTypeRef: "", area: "", provinceId: "", cityId: "", districtId: "", latitude: "", longitude: "", fullAddress: "", description: "", consultant: "", ownerFirstName: "", ownerLastName: "", ownerPhone: "" });
   const [gallery, setGallery] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<{ file: File; url: string }[]>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -244,10 +244,7 @@ function AddPropertyWizard({
     title: form.title,
     internalCode: form.internalCode,
     propertyTypeRef: form.propertyTypeRef ? Number(form.propertyTypeRef) : null,
-    beds: form.beds ? Number(form.beds) : null,
     area: form.area ? Number(form.area) : null,
-    floor: form.floor ? Number(form.floor) : null,
-    constructionYear: form.constructionYear ? Number(form.constructionYear) : null,
     districtId: form.districtId ? Number(form.districtId) : null,
     latitude: form.latitude ? Number(form.latitude) : null,
     longitude: form.longitude ? Number(form.longitude) : null,
@@ -302,10 +299,7 @@ function AddPropertyWizard({
       status: "DRAFT",
     };
     if (form.propertyTypeRef) payload.propertyTypeRef = Number(form.propertyTypeRef);
-    if (form.beds.trim()) payload.beds = Number(form.beds);
     if (form.area.trim()) payload.area = Number(form.area);
-    if (form.floor.trim()) payload.floor = Number(form.floor);
-    if (form.constructionYear.trim()) payload.constructionYear = Number(form.constructionYear);
     if (form.districtId) payload.districtId = Number(form.districtId);
     if (form.fullAddress.trim()) payload.fullAddress = form.fullAddress.trim();
     if (form.description.trim()) payload.description = form.description.trim();
@@ -436,10 +430,7 @@ function AddPropertyWizard({
                 required
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="کاربری" value={selectedUsageLabel} onChange={() => {}} readOnly />
-              <Input label="تعداد خواب" type="number" placeholder="۳ (در صورت عدم نیاز خالی بگذارید)" value={form.beds} onChange={(v) => set("beds", v)} />
-            </div>
+            <Input label="کاربری" value={selectedUsageLabel} onChange={() => {}} readOnly />
             <div className="p-3 bg-blue-50 dark:bg-blue-500/12 border border-blue-200 dark:border-blue-500/35 rounded-xl flex items-start gap-2.5">
               <Info size={14} className="text-blue-600 dark:text-blue-300 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-blue-700 dark:text-blue-300">قیمت و نوع معامله هنگام ثبت فایل مشخص می‌شوند؛ یک ملک می‌تواند همزمان چند فایل با شرایط متفاوت داشته باشد.</p>
@@ -474,11 +465,7 @@ function AddPropertyWizard({
         {step === 2 && (
           <div className="space-y-4">
             <h2 className="text-base font-semibold mb-1">جزئیات ملک</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="مساحت (متر مربع)" type="number" placeholder="۱۵۰۰" value={form.area} onChange={(v) => set("area", v)} error={fieldErrors.area} required />
-              <Input label="شماره طبقه" type="number" placeholder="مثال: ۲۲" value={form.floor} onChange={(v) => set("floor", v)} />
-            </div>
-            <Input label="سال ساخت" type="number" placeholder="مثال: ۲۰۱۹" value={form.constructionYear} onChange={(v) => set("constructionYear", v)} />
+            <Input label="مساحت (متر مربع)" type="number" placeholder="۱۵۰۰" value={form.area} onChange={(v) => set("area", v)} error={fieldErrors.area} required />
             <DynamicAttributeFields
               schema={schema}
               values={attributes}
@@ -584,10 +571,7 @@ function AddPropertyWizard({
                 ["کد داخلی", form.internalCode || "—"],
                 ["نوع", selectedType?.displayName || "—"],
                 ["کاربری", selectedUsageLabel],
-                ["خواب", form.beds || "—"],
                 ["مساحت", form.area ? `${form.area} متر مربع` : "—"],
-                ["طبقه", form.floor || "—"],
-                ["سال ساخت", form.constructionYear || "—"],
                 ["محله", selectedDistrictLabel],
                 ["آدرس کامل", form.fullAddress || "—"],
                 ["نام مالک", form.ownerFirstName || "—"],

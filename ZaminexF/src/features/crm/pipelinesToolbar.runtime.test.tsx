@@ -144,6 +144,84 @@ describe("operations pipeline toolbar", () => {
     expect(list.className).toContain("flex-1");
     expect(list.className).toContain("min-h-0");
     expect(list.className).toContain("overflow-y-auto");
+    // The list is also the containing block of the card's absolutely positioned screen-reader
+    // label; without it the label escapes the list, grows the document and adds a second
+    // scrollbar under the shell.
+    expect(list.className).toContain("relative");
     expect(within(column).getByText("رکورد 1")).toBeTruthy();
   });
+
+  it("keeps every scroll panel the containing block of its screen-reader text", async () => {
+    // A card that can move renders a `.sr-only` stage label. It is absolutely positioned, so a
+    // scroll panel that is not its containing block lets it escape to the document, which grows
+    // the page and adds the second scrollbar the shell was reported to have.
+    const movable = {
+      ...BOARD,
+      stages: [
+        {
+          code: "new",
+          label: "جدید",
+          count: 1,
+          cards: [
+            {
+              ...card(1),
+              transitions: [
+                {
+                  to: "contacted",
+                  label: "تماس گرفته‌شده",
+                  action: "mark_contacted",
+                  endpoint: "/crm/api/property-cases/1/transition/",
+                  method: "POST",
+                  reason_required: false,
+                },
+              ],
+            },
+          ],
+        },
+        { code: "contacted", label: "تماس گرفته‌شده", count: 0, cards: [] },
+        { code: "closed", label: "بسته‌شده", count: 0, cards: [] },
+        { code: "lost", label: "از دست رفته", count: 0, cards: [] },
+      ],
+    };
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/crm/api/pipelines/")) return jsonResponse(movable);
+      return jsonResponse({ results: [] });
+    }) as unknown as typeof fetch;
+
+    renderBoard();
+    await screen.findByRole("region", { name: "ستون جدید" });
+    expect(await screen.findByLabelText("تغییر مرحله LD-1")).toBeTruthy();
+
+    // Every page-level panel that hosts hidden text must be a containing block, otherwise the
+    // label escapes it and inflates the document.
+    const panels = scrollPanelsHostingHiddenText();
+    expect(panels.length).toBeGreaterThan(0);
+    for (const panel of panels) {
+      expect(panel.className.split(/\s+/)).toContain("relative");
+    }
+  });
 });
+
+/** The nearest scrolling panel below the shell that holds an absolutely positioned `.sr-only`. */
+function scrollPanelsHostingHiddenText(): HTMLElement[] {
+  const panelTokens = new Set([
+    "overflow-x-auto",
+    "overflow-y-auto",
+    "overflow-auto",
+    "overflow-x-scroll",
+    "overflow-y-scroll",
+  ]);
+  const found = new Set<HTMLElement>();
+  document.querySelectorAll(".sr-only").forEach((node) => {
+    let el = node.parentElement;
+    while (el && el.tagName !== "MAIN" && el !== document.body) {
+      if (Array.from(el.classList).some((token) => panelTokens.has(token))) {
+        found.add(el);
+        break;
+      }
+      el = el.parentElement;
+    }
+  });
+  return Array.from(found);
+}

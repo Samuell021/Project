@@ -421,6 +421,11 @@ class ManagementScopeViewSet(CrmBase):
         ids = services.user_sales_range_ids(self.request.user)
         if ids is None:
             return super().get_queryset()
+        if not ids:
+            # The panel decides which range a case belongs to from this very list, so a missing
+            # history row must be repaired before the user is told they have no range at all.
+            if services.repair_user_sales_ranges(self.request.user):
+                ids = services.user_sales_range_ids(self.request.user) or set()
         return super().get_queryset().filter(pk__in=ids)
 
 

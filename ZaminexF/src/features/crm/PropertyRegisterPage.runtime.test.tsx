@@ -246,7 +246,7 @@ describe("property registration form upload and review ordering", () => {
       }
       if (url.includes("/crm/api/property-cases/") || url.includes("/crm/api/contacts/") ||
           url.includes("/crm/api/scope-memberships/") || url.includes("/crm/api/deal-types/") ||
-          url.includes("/crm/api/properties/88/listings/")) {
+          url.includes("/crm/api/scopes/") || url.includes("/crm/api/properties/88/listings/")) {
         return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       return new Response(JSON.stringify({ detail: `Unexpected request: ${method} ${url}` }), {

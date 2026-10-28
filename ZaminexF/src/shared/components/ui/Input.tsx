@@ -19,13 +19,17 @@ function caretPositionForDigitCount(formatted: string, digitCount: number): numb
   return formatted.length;
 }
 
-function Input({ label, type = "text", placeholder, value, onChange, icon, error, required, textarea, rows, readOnly, isPrice }: {
+function Input({ label, type = "text", placeholder, value, onChange, icon, error, required, textarea, rows, readOnly, isPrice, className, ariaLabel }: {
   label?: string; type?: string; placeholder?: string; value: string;
   onChange: (v: string) => void; icon?: React.ReactNode; error?: string;
   required?: boolean; textarea?: boolean; rows?: number; readOnly?: boolean;
   isPrice?: boolean;
+  /** Optional replacement for the default field classes, so a page can keep its own input style. */
+  className?: string;
+  /** Accessible name for pages that draw their own label outside this component. */
+  ariaLabel?: string;
 }) {
-  const cls = "w-full rounded-xl border border-border bg-input-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:ring-2 focus:ring-ring focus:border-primary";
+  const cls = className || "w-full rounded-xl border border-border bg-input-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:ring-2 focus:ring-ring focus:border-primary";
   const inputRef = useRef<HTMLInputElement | null>(null);
   const lastKeyRef = useRef<string | null>(null);
   const pendingCaretRef = useRef<number | null>(null);
@@ -109,6 +113,7 @@ function Input({ label, type = "text", placeholder, value, onChange, icon, error
               type={isPrice ? "text" : type}
               inputMode={isPrice ? "numeric" : undefined}
               placeholder={placeholder}
+              aria-label={ariaLabel}
               value={displayValue}
               onKeyDown={isPrice ? handlePriceKeyDown : undefined}
               onPaste={isPrice ? handlePricePaste : undefined}

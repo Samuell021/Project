@@ -176,6 +176,40 @@ def notify(user, title, message, subject_type, subject_id, event_key_prefix=None
     )
 
 
+def repair_user_sales_ranges(user):
+    """Rebuild the history rows a range's own member lists already imply for this user.
+
+    Reads that ask "which ranges does this user work in" trust ``ScopeMembership``, so a row lost to
+    a restored dump or a raw import makes an assigned user look unassigned on every screen. The
+    repair is driven by the assignment itself (``SalesRange.managers``/``members``), adds nobody and
+    does nothing when the history is already correct.
+    """
+    from apps.accounts.scope_memberships import reconcile_user_memberships
+
+    return reconcile_user_memberships(user)
+
+
+def missing_sales_range_message(user):
+    """Why a user without an active range cannot own a case, and what fixes it.
+
+    The panel shows this text verbatim, so it names the cause and the exact screen an admin has to
+    use. A user who never had a range needs an assignment; a user whose range was deactivated (or
+    whose membership ended) needs the existing assignment repaired — the two cases are not the same
+    mistake and a single generic sentence hid that from the operator.
+    """
+    from apps.accounts.models import ScopeMembership
+
+    if ScopeMembership.objects.filter(user=user).exists():
+        return (
+            "عضویت شما در رنج‌ها فعال نیست (رنج غیرفعال شده یا عضویت شما پایان یافته است)؛ "
+            "برای ثبت پرونده با مدیر هماهنگ کنید."
+        )
+    return (
+        "حساب شما به هیچ رنجی متصل نیست؛ برای ثبت پرونده مدیر باید شما را از مسیر "
+        "«تنظیمات ← رنج‌ها» به یک رنج فعال اضافه کند."
+    )
+
+
 def resolve_sales_range(user, requested_scope_id):
     if requested_scope_id:
         sales_range = SalesRange.objects.filter(pk=requested_scope_id, is_active=True).first()
@@ -186,7 +220,11 @@ def resolve_sales_range(user, requested_scope_id):
         return sales_range
     sales_range = active_sales_range_for_user(user)
     if sales_range is None and not user_is_general_manager(user):
-        raise ValidationError({"sales_range": "برای شما رنج فعالی ثبت نشده است."})
+        # A range that already lists this user is an assignment; only its history row is missing
+        # (restored dump, raw import). Repair it instead of reporting the user as unassigned.
+        sales_range = repair_user_sales_ranges(user)
+    if sales_range is None and not user_is_general_manager(user):
+        raise ValidationError({"sales_range": missing_sales_range_message(user)})
     return sales_range
 
 

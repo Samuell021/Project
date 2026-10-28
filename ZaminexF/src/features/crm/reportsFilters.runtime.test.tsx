@@ -181,4 +181,59 @@ describe("reports page filters", () => {
     fireEvent.click(screen.getByRole("tab", { name: "فایل‌های متوقف" }));
     expect(screen.getByText("فایل متوقفی نیست")).toBeTruthy();
   });
+
+  it("makes every scroll panel the containing block of its screen-reader caption", async () => {
+    // A `.sr-only` caption is absolutely positioned. Inside a scroll panel that is not a
+    // containing block it escapes to the document, which grows the page and adds a second
+    // scrollbar under the shell; scrolling that bar slides the whole app out of view.
+    const withStalled = {
+      ...REPORT,
+      stalled_listings: [{ id: 7, title: "فایل نمونه", deal_type: "فروش", days_in_stage: 12 }],
+    };
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/crm/api/dashboard/summary/")) return jsonResponse(SUMMARY);
+      if (url.includes("/crm/api/reports/")) return jsonResponse(withStalled);
+      return jsonResponse({ results: [] });
+    }) as unknown as typeof fetch;
+
+    renderReports();
+    await screen.findByRole("tab", { name: "عملکرد مشاور" });
+
+    let inspected = 0;
+    for (const tab of ["تبدیل", "عملکرد مشاور", "فایل‌های متوقف", "مذاکرات و قرارداد", "مالی"]) {
+      fireEvent.click(screen.getByRole("tab", { name: tab }));
+      const panels = scrollPanelsHostingHiddenText();
+      expect(panels.length).toBeGreaterThan(0);
+      for (const panel of panels) {
+        inspected += 1;
+        expect(panel.className.split(/\s+/)).toContain("relative");
+      }
+    }
+    // Every tab really renders a captioned panel, so the loop above is not a no-op.
+    expect(inspected).toBeGreaterThanOrEqual(5);
+  });
 });
+
+/** The nearest scrolling panel below the shell that holds an absolutely positioned `.sr-only`. */
+function scrollPanelsHostingHiddenText(): HTMLElement[] {
+  const panelTokens = new Set([
+    "overflow-x-auto",
+    "overflow-y-auto",
+    "overflow-auto",
+    "overflow-x-scroll",
+    "overflow-y-scroll",
+  ]);
+  const found = new Set<HTMLElement>();
+  document.querySelectorAll(".sr-only").forEach((node) => {
+    let el = node.parentElement;
+    while (el && el.tagName !== "MAIN" && el !== document.body) {
+      if (Array.from(el.classList).some((token) => panelTokens.has(token))) {
+        found.add(el);
+        break;
+      }
+      el = el.parentElement;
+    }
+  });
+  return Array.from(found);
+}
