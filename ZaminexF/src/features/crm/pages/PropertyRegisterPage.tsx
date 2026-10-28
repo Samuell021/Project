@@ -20,9 +20,11 @@ import { LocationSelect, findLocationPath, useLocationTree } from "../../../shar
 import { ContactCombobox, type ContactComboboxRow } from "../../../shared/components/ui/ContactCombobox";
 import { ConsultantCombobox } from "../../../shared/components/ui/ConsultantCombobox";
 import { DynamicAttributeFields } from "../../../shared/components/ui/DynamicAttributeFields";
+import { Input } from "../../../shared/components/ui/Input";
 import { JalaliDateTimeInput } from "../../../shared/components/ui/JalaliDateTimeInput";
 import { PropertyMapPicker } from "../../../shared/components/ui/PropertyMapPicker";
 import { apiErrorMessage, apiFetch, readJson } from "../../../shared/lib/apiClient";
+import { normalizePriceDigits } from "../../../shared/lib/utils";
 import { useAttributeSchema, useBasicsCatalog } from "../../../shared/lib/useAttributeSchema";
 import type { Role } from "../../../shared/lib/types";
 import { AccessibleModal } from "../components/AccessibleModal";
@@ -50,6 +52,7 @@ import {
   wizardStepIndex,
   writeSupplyDraft,
   type DealTermsSchema,
+  type DealTermField,
   type DealTypeCatalogItem,
   type DealTypeChangePreview,
   type PropertyCaseRecord,
@@ -57,6 +60,15 @@ import {
   type WizardStepKey,
 } from "../lib/supplyDomain";
 import type { CrmPageProps, Row } from "../types";
+
+/**
+ * Deal-term amounts (schema unit «تومان») are the only fields that get the live 3-digit grouping
+ * and the Persian-words line under the input, exactly like the prices in the property-file wizard.
+ * Percentages and other numeric terms keep the plain number input.
+ */
+const isMoneyTermField = (field: DealTermField): boolean =>
+  (field.type === "integer" || field.type === "decimal") &&
+  Boolean(field.unit && field.unit.includes("تومان"));
 
 type AppraisalDraftState = {
   contactMode: "new" | "existing";
@@ -699,16 +711,35 @@ export function PropertyRegisterPage({
       setFormError("انتخاب نوع معامله الزامی است.");
       return;
     }
+    // Money terms are edited as digit strings so the field can group thousands while typing, the
+    // same way the property-file wizard holds its prices; they go back to integers only here.
+    const cleanTerms: Record<string, string | number | boolean> = {};
+    for (const [key, value] of Object.entries(listingTerms)) {
+      const field = (currentSchema?.fields || []).find((item) => item.key === key);
+      if (!field || !isMoneyTermField(field)) {
+        cleanTerms[key] = value;
+        continue;
+      }
+      const digits = normalizePriceDigits(value as string | number | null);
+      cleanTerms[key] = digits ? Number(digits) : "";
+    }
+    const missingRequired = (currentSchema?.fields || []).find(
+      (field) => field.required && isMoneyTermField(field) && !cleanTerms[field.key],
+    );
+    if (missingRequired) {
+      setFormError(`وارد کردن ${missingRequired.label} الزامی است.`);
+      return;
+    }
     setBusy(true);
     setFormError("");
     setFeedback("");
     try {
       await post(csrfToken, `/crm/api/properties/${propId}/listings/`, {
         deal_type: Number(selectedDealTypeId),
-        terms: listingTerms,
-        sale_price: listingTerms.sale_price ?? null,
-        deposit: listingTerms.deposit ?? null,
-        monthly_rent: listingTerms.monthly_rent ?? null,
+        terms: cleanTerms,
+        sale_price: cleanTerms.sale_price ?? null,
+        deposit: cleanTerms.deposit ?? null,
+        monthly_rent: cleanTerms.monthly_rent ?? null,
         description: listingDescription.trim(),
         status: listingStatus,
       });
@@ -1758,40 +1789,60 @@ export function PropertyRegisterPage({
 
               {currentSchema?.fields?.length ? (
                 <div className="grid gap-3 rounded-xl border p-3.5 sm:grid-cols-2">
-                  {currentSchema.fields.map((field) => (
-                    <Field
-                      key={field.key}
-                      label={`${field.label}${field.unit ? ` (${field.unit})` : ""}${field.required ? " *" : ""}`}
-                    >
-                      {field.type === "boolean" ? (
-                        <input
-                          type="checkbox"
-                          checked={Boolean(listingTerms[field.key])}
-                          onChange={(e) =>
-                            setListingTerms((prev) => ({ ...prev, [field.key]: e.target.checked }))
-                          }
-                        />
-                      ) : (
-                        <input
-                          type={field.type === "integer" || field.type === "decimal" ? "number" : field.type === "date" ? "date" : "text"}
-                          value={String(listingTerms[field.key] ?? "")}
-                          onChange={(e) =>
-                            setListingTerms((prev) => ({
-                              ...prev,
-                              [field.key]:
-                                field.type === "integer" || field.type === "decimal"
-                                  ? e.target.value === ""
-                                    ? ""
-                                    : Number(e.target.value)
-                                  : e.target.value,
-                            }))
-                          }
-                          required={field.required}
-                          className={inputCls}
-                        />
-                      )}
-                    </Field>
-                  ))}
+                  {currentSchema.fields.map((field) => {
+                    const fieldLabel = `${field.label}${field.unit ? ` (${field.unit})` : ""}`;
+                    const label = `${fieldLabel}${field.required ? " *" : ""}`;
+                    // Amounts get the same price input as the property-file wizard: grouping while typing plus the
+                    // Persian-words line under the field. Everything else keeps the plain control.
+                    if (isMoneyTermField(field)) {
+                      return (
+                        <div key={field.key} className="block text-sm">
+                          <span className="mb-1 block text-muted-foreground">{label}</span>
+                          <Input
+                            isPrice
+                            className={inputCls}
+                            ariaLabel={fieldLabel}
+                            placeholder="مبلغ به تومان"
+                            value={String(listingTerms[field.key] ?? "")}
+                            onChange={(value) =>
+                              setListingTerms((prev) => ({ ...prev, [field.key]: value }))
+                            }
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <Field key={field.key} label={label}>
+                        {field.type === "boolean" ? (
+                          <input
+                            type="checkbox"
+                            checked={Boolean(listingTerms[field.key])}
+                            onChange={(e) =>
+                              setListingTerms((prev) => ({ ...prev, [field.key]: e.target.checked }))
+                            }
+                          />
+                        ) : (
+                          <input
+                            type={field.type === "integer" || field.type === "decimal" ? "number" : field.type === "date" ? "date" : "text"}
+                            value={String(listingTerms[field.key] ?? "")}
+                            onChange={(e) =>
+                              setListingTerms((prev) => ({
+                                ...prev,
+                                [field.key]:
+                                  field.type === "integer" || field.type === "decimal"
+                                    ? e.target.value === ""
+                                      ? ""
+                                      : Number(e.target.value)
+                                    : e.target.value,
+                              }))
+                            }
+                            required={field.required}
+                            className={inputCls}
+                          />
+                        )}
+                      </Field>
+                    );
+                  })}
                 </div>
               ) : null}
 
