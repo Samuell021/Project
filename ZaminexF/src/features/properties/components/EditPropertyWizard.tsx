@@ -63,10 +63,7 @@ function EditPropertyWizard({
     title: existing?.title || "",
     internalCode: existing?.internalCode || "",
     propertyTypeRef: (existing as any)?.propertyTypeRef ? String((existing as any).propertyTypeRef) : "",
-    beds: existing?.beds ? String(existing.beds) : "",
     area: existing?.area ? String(existing.area) : "",
-    floor: existing?.floor ? String(existing.floor) : "",
-    constructionYear: existing?.constructionYear ? String(existing.constructionYear) : "",
     provinceId: "",
     cityId: "",
     districtId: (existing as any)?.districtId ? String((existing as any).districtId) : "",
@@ -233,10 +230,7 @@ function EditPropertyWizard({
       title: existing.title || "",
       internalCode: existing.internalCode || "",
       propertyTypeRef: (existing as any).propertyTypeRef ? String((existing as any).propertyTypeRef) : "",
-      beds: existing.beds ? String(existing.beds) : "",
       area: existing.area ? String(existing.area) : "",
-      floor: existing.floor ? String(existing.floor) : "",
-      constructionYear: existing.constructionYear ? String(existing.constructionYear) : "",
       provinceId: "",
       cityId: "",
       districtId: (existing as any).districtId ? String((existing as any).districtId) : "",
@@ -270,10 +264,7 @@ function EditPropertyWizard({
     title: form.title,
     internalCode: form.internalCode,
     propertyTypeRef: form.propertyTypeRef ? Number(form.propertyTypeRef) : null,
-    beds: form.beds ? Number(form.beds) : null,
     area: form.area ? Number(form.area) : null,
-    floor: form.floor ? Number(form.floor) : null,
-    constructionYear: form.constructionYear ? Number(form.constructionYear) : null,
     districtId: form.districtId ? Number(form.districtId) : null,
     latitude: form.latitude ? Number(form.latitude) : null,
     longitude: form.longitude ? Number(form.longitude) : null,
@@ -369,10 +360,7 @@ function EditPropertyWizard({
                 required
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="کاربری" value={selectedUsageLabel} onChange={() => {}} readOnly />
-              <Input label="تعداد خواب" type="number" value={form.beds} onChange={(v) => set("beds", v)} />
-            </div>
+            <Input label="کاربری" value={selectedUsageLabel} onChange={() => {}} readOnly />
             <div className="p-3 bg-blue-50 dark:bg-blue-500/12 border border-blue-200 dark:border-blue-500/35 rounded-xl flex items-start gap-2.5">
               <Info size={14} className="text-blue-600 dark:text-blue-300 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-blue-700 dark:text-blue-300">قیمت و نوع معامله در فایل‌های این ملک ثبت می‌شوند.</p>
@@ -397,11 +385,7 @@ function EditPropertyWizard({
         {step === 2 && (
           <div className="space-y-4">
             <h2 className="text-base font-semibold mb-1">جزئیات ملک</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="مساحت (متر مربع)" type="number" value={form.area} onChange={(v) => set("area", v)} error={fieldErrors.area} required />
-              <Input label="شماره طبقه" type="number" value={form.floor} onChange={(v) => set("floor", v)} />
-            </div>
-            <Input label="سال ساخت" type="number" value={form.constructionYear} onChange={(v) => set("constructionYear", v)} />
+            <Input label="مساحت (متر مربع)" type="number" value={form.area} onChange={(v) => set("area", v)} error={fieldErrors.area} required />
             <DynamicAttributeFields
               schema={schema}
               values={attributes}
@@ -458,7 +442,7 @@ function EditPropertyWizard({
           <div className="space-y-4">
             <h2 className="text-base font-semibold mb-1">بررسی تغییرات</h2>
             <div className="rounded-xl bg-secondary p-4 space-y-3">
-              {[["عنوان", form.title], ["کد", form.internalCode], ["نوع", selectedType?.displayName || "—"], ["کاربری", selectedUsageLabel], ["مساحت", form.area], ["طبقه", form.floor], ["سال ساخت", form.constructionYear], ["محله", selectedDistrictLabel], ["نام مالک", form.ownerFirstName || "—"], ["نام خانوادگی مالک", form.ownerLastName || "—"], ["شماره موبایل مالک", form.ownerPhone || "—"], ...reviewAttributeRows].map(([k, v]) => (
+              {[["عنوان", form.title], ["کد", form.internalCode], ["نوع", selectedType?.displayName || "—"], ["کاربری", selectedUsageLabel], ["مساحت", form.area], ["محله", selectedDistrictLabel], ["نام مالک", form.ownerFirstName || "—"], ["نام خانوادگی مالک", form.ownerLastName || "—"], ["شماره موبایل مالک", form.ownerPhone || "—"], ...reviewAttributeRows].map(([k, v]) => (
                 <div key={k} className="flex justify-between py-1.5 border-b border-border/50 last:border-0">
                   <span className="text-sm text-muted-foreground">{k}</span><span className="text-sm font-semibold max-w-xs truncate">{v}</span>
                 </div>

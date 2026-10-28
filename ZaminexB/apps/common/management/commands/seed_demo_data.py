@@ -47,6 +47,7 @@ from apps.listings.models import (
     PropertyFilePriceHistory,
 )
 from apps.notifications.models import Notification
+from apps.properties.features import store_feature_value
 from apps.properties.models import (
     Property,
     PropertyAppraisalReport,
@@ -593,6 +594,14 @@ class Command(BaseCommand):
                 if created:
                     value_row.set_value(options[index % len(options)])
                     value_row.save()
+
+            # The physical features are dynamic attributes; their legacy columns
+            # are only mirrors, so the demo rows must store both from the start.
+            for name in ("rooms", "floor", "built_year"):
+                raw = getattr(prop, name)
+                if raw is None or (name in {"rooms", "built_year"} and raw <= 0):
+                    continue
+                store_feature_value(prop, name, raw)
 
     def _seed_property_media(self, properties, users):
         for index, prop in enumerate(properties):

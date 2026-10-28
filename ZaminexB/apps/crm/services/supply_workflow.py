@@ -555,18 +555,9 @@ def _sync_property_attributes(prop, property_type, payload):
 
 def _sync_legacy_property_feature_columns(prop):
     """Keep legacy searchable property columns in sync with dynamic values."""
-    values = {
-        item.attribute.name: item.value
-        for item in PropertyAttributeValue.objects.filter(
-            property=prop,
-            attribute__name__in=("rooms", "floor", "built_year"),
-            attribute__is_core=False,
-        ).select_related("attribute")
-    }
-    prop.rooms = int(values["rooms"]) if values.get("rooms") not in (None, "") else 0
-    prop.floor = int(values["floor"]) if values.get("floor") not in (None, "") else None
-    prop.built_year = int(values["built_year"]) if values.get("built_year") not in (None, "") else None
-    prop.save(update_fields=["rooms", "floor", "built_year", "updated_at"])
+    from apps.properties.features import mirror_feature_columns
+
+    mirror_feature_columns(prop)
 
 
 def _validate_required_property_attributes(prop):
